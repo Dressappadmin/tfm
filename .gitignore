@@ -1,0 +1,14 @@
+# Entornos virtuales
+venv/
+env/
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Variables de entorno y secretos
+.env
+
+# Configuraciones de IDEs
+.vscode/

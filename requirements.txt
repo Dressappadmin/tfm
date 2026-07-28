@@ -1,0 +1,16 @@
+transparent-background
+matplotlib
+gradio_client
+supabase
+transformers
+torch --index-url https://download.pytorch.org/whl/cpu
+torchvision --index-url https://download.pytorch.org/whl/cpu
+Pillow
+requests
+scikit-learn
+python-dotenv
+numpy
+fastapi
+uvicorn
+python-multipart
+transparent_background
