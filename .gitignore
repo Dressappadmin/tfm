@@ -12,3 +12,6 @@ __pycache__/
 
 # Configuraciones de IDEs
 .vscode/
+
+# Basura mía
+Instrucciones.txt

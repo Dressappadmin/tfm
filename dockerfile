@@ -24,11 +24,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiamos todo el código de la aplicación
 COPY . .
 
-# --- NUEVO: Descarga en caché de los modelos de IA ---
-# Ejecutamos tu función de carga de modelos. Esto descargará FashionCLIP (y 
-# cualquier otra IA como la de quitar fondos) y las guardará dentro de la imagen.
-RUN python -c "from modulos.model_loader import cargar_modelos; cargar_modelos()"
+# Descarga en caché de los modelos de IA ---
+RUN python -c "from modulos.cargar_modelos import cargar_modelos; cargar_modelos()"
 
-# --- ACTUALIZADO: Comando de Producción ---
 # Lanzamos FastAPI usando el puerto dinámico de Google
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]

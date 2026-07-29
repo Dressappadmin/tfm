@@ -1,11 +1,12 @@
 import os
+import torch
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
 load_dotenv()
 
 # Device
-device = "cpu"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # ==========================================
 # CREDENCIALES Y BD

@@ -1,3 +1,40 @@
+## Requisitos previos
+- **Python:** Versión 3.11
+
+Para desarrollo:
+copiar el repositiorio de git
+1. Abrir una terminal en la carpeta donde se van a querer guardar los archivos
+
+2. Escribir
+	git config --global user.name Dressappadmin
+	git config --global user.email dressappadmin@gmail.com
+	git init
+	git remote add origin https://github.com/Dressappadmin/tfm.git
+	git pull origin main
+	git branch develop_nombre
+
+3. Con esto tendremos los archivos que están en la rama main en nuestro local. 
+Trabajamos cada uno en su rama develop para facilitar la organización 
+
+para ponerlo a funcionar:
+1. Abrimos VSCode y abrimos la carpeta de los archivos
+
+2. Creamos nuestro entorno virtual. Abrimos una terminal de VSCode en la carpeta del código y escribimos
+	python -m venv venv
+
+Nos dará a elegir la versión de python. Elegimos la 3.11.9. Si no la tenemos hay que descargarla
+
+3. Activamos el entorno virtual
+En widnows (powershell)
+	.\venv\Scripts\Activate.ps1
+En MAC 
+	source venv/bin/activate
+
+4. hacemos CTRL + MAYUS + P y buscamos seleccionar el interpreter de python. Elegimos el de venv/bin/python
+
+5. Abrimos una terminal de VSCode y ejecutamos
+	pip install -r requirements.txt
+
 Para construir y subir el docker a google cloud. Cambiar el 7 por la versión que toque
 
 1. Asegúrate de haber guardado todos los archivos
