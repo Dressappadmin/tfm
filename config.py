@@ -11,10 +11,14 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # ==========================================
 # CREDENCIALES Y BD
 # ==========================================
+# Credenciales
 SUPABASE_URL    = os.getenv("SUPABASE_URL")
 SUPABASE_KEY    = os.getenv("SUPABASE_KEY")
-SUPABASE_TABLE  = 'zara_imgs_wback'
-SUPABASE_BUCKET = 'Pruebas'
+
+# Tablas y buckets
+OUTFITS_TABLA = 'outfits'
+PRENDAS_TABLA = 'prendas_usuarios'
+PRENDAS_BUCKET = 'fotos_usuarios'
 
 # ==========================================
 # NOMBRES DE COLUMNAS (Mapeo de BD)

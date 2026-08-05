@@ -1,7 +1,7 @@
 from PIL import Image
 from transparent_background import Remover
 
-def remove_background(img_bytes: bytes, remover: Remover) -> Image.Image:
+def quitar_fondo(img_bytes: bytes, remover: Remover) -> Image.Image:
 
     '''
     Dada una imagen devuelve la misma imagen pero eliminando el fondo

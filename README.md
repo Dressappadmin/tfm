@@ -211,3 +211,13 @@ Como referencia, la última ejecución se hizo con los parámetros:
    --cpu 2 \
    --timeout 300
 
+### Probar la api en local
+Abre una terminal de VSCode y escribe
+   uvicorn api:app --reload --port 8000
+
+Escribe en tu navegador:
+   http://127.0.0.1:8000/docs
+
+### Limpieza
+Cuando se crean muchas imágenes de docker la basura se acumula... con este comando hacemos limpieza:
+   docker system prune -a --volumes -f

@@ -2,10 +2,10 @@ import numpy as np
 from PIL import Image
 from transformers import CLIPProcessor, CLIPModel
 from transparent_background import Remover
-from utils.remove_background import remove_background
-from utils.get_embedding import get_embedding
-from modulos.reconocer_prenda import reconocer_prenda
-from modulos.completar_outfit import detectar_color_prenda
+from .quitar_fondo import quitar_fondo
+from .calcular_embedding import calcular_embedding
+from .reconocer_prenda import reconocer_prenda
+from .detectar_color_prenda import detectar_color_prenda
 
 def procesar_imagen(
     img: Image.Image, 
@@ -37,9 +37,9 @@ def procesar_imagen(
     color: el color de la prenda (hex)
     '''
 
-    image_clean = remove_background(img, remover)
+    image_clean = quitar_fondo(img, remover)
     
-    embedding = get_embedding(image_clean, processor, model)
+    embedding = calcular_embedding(image_clean, processor, model)
 
     tipo_prenda = reconocer_prenda(image_clean, processor, model)[0][0]
 

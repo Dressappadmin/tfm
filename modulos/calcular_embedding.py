@@ -4,7 +4,7 @@ import torch
 from transformers import CLIPProcessor, CLIPModel
 from config import DEVICE
 
-def get_embedding(img: Image.Image, processor: CLIPProcessor, model: CLIPModel, device:str = DEVICE) -> np.ndarray:
+def calcular_embedding(img: Image.Image, processor: CLIPProcessor, model: CLIPModel, device:str = DEVICE) -> np.ndarray:
 
     '''
     Dada una imagen devuelve el vector de embedding de la misma para el modelo cargado FashionClip
