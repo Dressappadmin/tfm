@@ -21,13 +21,13 @@ PRENDAS_TABLA = 'prendas_usuarios'
 PRENDAS_BUCKET = 'fotos_usuarios'
 
 # ==========================================
-# NOMBRES DE COLUMNAS (Mapeo de BD)
+# NOMBRES DE COLUMNAS (Mapeo de BD) 
 # ==========================================
 COL_ID           = 'id'
 COL_NAME         = 'name'
 COL_PRICE        = 'price'
 COL_SECTION      = 'section'
-COL_FAMILY       = 'family'
+COL_FAMILY       = 'nombre'
 COL_IMG_URL      = 'img_url'
 COL_AVAILABILITY = 'availability'
 COL_COLOR        = 'main_color_hex'
@@ -47,13 +47,13 @@ CATEGORIAS = [
     'zapato plano', 'zapato tacon'
 ]
 
-SLOTS = {
+SLOTS = { 
     'SUPERIOR':        ['camiseta', 'camisa', 'top', 'jersey', 'sudadera', 'body', 'chaleco'],
     'INFERIOR':        ['pantalon', 'falda', 'short', 'bermuda', 'leggings'],
     'CUERPO_COMPLETO': ['vestido', 'mono', 'peto', 'bañador'],
     'ABRIGO':          ['abrigo', 'anorak', 'chaqueta', 'cazadora', 'gabardina', 'impermeable', 'blazer'],
-    'CALZADO':         ['bambas', 'bota plana', 'bota tacon', 'botin plano', 'botin tacon'],
-    'ACCESORIO':       ['bisuteria', 'bolso', 'cinturon', 'pañuelo'],
+    'CALZADO':         ['bambas', 'bota plana', 'bota tacon', 'botin plano', 'botin tacon', 'zapato tacon'],
+    'ACCESORIO':       ['bisuteria', 'bolso', 'cinturon', 'pañuelo', 'sombrero'],
 }
 
 TOP_K = 5

@@ -8,4 +8,4 @@ def eliminar_prenda_bd(url_imagen: str) -> bool:
         return True
     except Exception as e:
         print(f"Error borrando de la BD: {e}")
-        return Falsesa
+        return False 

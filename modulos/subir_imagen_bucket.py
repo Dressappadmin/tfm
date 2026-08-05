@@ -3,12 +3,11 @@ import uuid
 from PIL import Image
 from supabase import Client
 
-
 def subir_imagen_bucket(
     imagen: Image.Image, 
     supabase: Client, 
     usuario_id: str | None = None,
-    bucket_name: str = "prendas"
+    bucket_name: str = "fotos_usuarios"
 ) -> str:
     '''
     Función que dada una imagen la sube al bucket indicado
@@ -17,7 +16,7 @@ def subir_imagen_bucket(
     ----------
     imagen: la imagen
     supabase: el cliente de supabase al que se subirá la imagen
-    usuario_id: el id del usuario que está subiendo la imagen
+    usuario_id: el id del usuario que está subiendo la imagen (opcional)
     bucket_name: el nombre del bucket al que se subirá la imagen
     
     Precondition
@@ -49,9 +48,8 @@ def subir_imagen_bucket(
 
     file_bytes = buffer.getvalue()
 
-    # 2. Generar una ruta organizada por usuario o subcarpeta
-    prefijo = f"{usuario_id}/" if usuario_id else f"{subcarpeta}/"
-    nombre_archivo = f"{prefijo}{uuid.uuid4()}.{extension}"
+    # 2. Generar nombre de archivo único directamente en la raíz del bucket
+    nombre_archivo = f"{uuid.uuid4()}.{extension}"
 
     # 3. Subir al bucket de Supabase Storage
     supabase.storage.from_(bucket_name).upload(

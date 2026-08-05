@@ -9,7 +9,7 @@ import base64
 
 # IMPORTAMOS LIBRERÍAS Y MÓDULOS INTERNOS
 from config import *
-from modulos.cargar_bd import catalog
+from modulos.cargar_bd import catalog, supabase
 from modulos.cargar_modelos import cargar_modelos
 from modulos.procesar_imagen import procesar_imagen
 from modulos.completar_outfit import completar_outfit
@@ -139,21 +139,39 @@ async def paso1_analizar_prenda(file: UploadFile = File(...)):
         
         # Subimos la imagen al bucket
         try:
-            # CORRECCIÓN: Le pasamos 'img' que es la imagen cargada
-            url = subir_imagen_bucket(img)
+            # 1. Subida al storage de Supabase (pasándole la imagen y el cliente)
+            url = subir_imagen_bucket(
+                imagen=img,
+                supabase=supabase,  # O como se llame tu variable del cliente de Supabase en config.py (ej: supabase_client)
+                usuario_id=None,
+                bucket_name="fotos_usuarios"
+            )
             if not url:
                 raise ValueError("subir_imagen_bucket devolvió una URL vacía.")
 
-            # CORRECCIÓN: Definimos la metadata para registrarla
-            metadata_nueva = {
-                "tipo_prenda": tipo_prenda,
-                "color": color['hex'],
-                "embedding": embedding.tolist() if hasattr(embedding, "tolist") else embedding
-            }
-            # Subida relacional a base de datos
-            exito_bd = registrar_prenda_bd(url, metadata_nueva)
-            if not exito_bd:
+            # 2. Subida relacional a la base de datos con TODOS los argumentos que pide tu función
+            exito_bd = registrar_prenda_bd(
+                supabase=supabase,        # Cliente de Supabase
+                imagen=img,               # Imagen PIL de la prenda
+                nombre=tipo_prenda,     # Nombre por defecto para pruebas
+                precio=0,                 # Precio por defecto
+                marca="Desconocida",      # Marca por defecto
+                año_venta=2026,           # Año actual
+                temporada="AtemporaL",    # Temporada por defecto
+                seccion="OTHERS",         # Seccion ("WOMAN", "MAN", "OTHERS")
+                family=tipo_prenda,       # Asignamos el tipo detectado a la familia
+                processor=processor,      # Modelo procesador cargado en ml_models
+                model=model,              # Modelo IA cargado en ml_models
+                ocasion=[],               # Opcional
+                estilo_estetico=[],       # Opcional
+                bucket_name="fotos_usuarios",
+                usuario_id=None
+            )
+
+            # Como devuelve un dict[str, Any], verificamos que contenga datos
+            if not exito_bd or not isinstance(exito_bd, dict):
                 raise ValueError("registrar_prenda_bd no pudo completar el registro en la tabla.")
+
         except Exception as e:
             raise HTTPException(
                 status_code=500,
@@ -209,12 +227,12 @@ async def paso2_generar_outfit(datos: Paso2Request = Body(...)):
         # PASO 5: generar_outfit(imagen)
         # Llamamos al motor de recomendación híbrido para completar el conjunto
         outfit_generado = completar_outfit(
-            tipo_prenda=datos.tipo_prenda,
-            top_n=datos.top_n,
-            temperatura=datos.temperatura,
-            color=datos.color,
-            embedding=datos.embedding,
-            catalog=catalog
+            datos.tipo_prenda,
+            datos.top_n,
+            datos.temperatura,
+            datos.color,
+            datos.embedding,
+            catalog
         )
 
         ids_outfit = [m.get("id") for m in outfit_generado]

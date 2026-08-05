@@ -52,11 +52,19 @@ def slots_compatibles(prenda: str, dic: dict = SLOTS) -> list:
         
     """Dada la prenda detectada, qué slots corporales puede llevar el resto del outfit."""
 
-    slot_prenda = detectar_slot(prenda, dic)
+    slot = detectar_slot(prenda)
 
-    slots = [s for s in dic.keys() if s != slot_prenda]
-        
-    return slots
+    todos = ['SUPERIOR', 'INFERIOR', 'CUERPO_COMPLETO', 'ABRIGO', 'CALZADO', 'ACCESORIO']
+    
+    if slot == 'SUPERIOR':
+        return ['INFERIOR', 'ABRIGO', 'CALZADO', 'ACCESORIO']
+    if slot == 'INFERIOR':
+        return ['SUPERIOR', 'ABRIGO', 'CALZADO', 'ACCESORIO']
+    if slot == 'CUERPO_COMPLETO':
+        return ['ABRIGO', 'CALZADO', 'ACCESORIO']
+    if slot in ('ABRIGO', 'CALZADO', 'ACCESORIO'):
+        return [s for s in todos if s != slot]
+    return []
 
 def hex_to_hsv(hex_color: str) -> tuple: 
 
@@ -245,6 +253,8 @@ def completar_outfit(tipo_prenda: str, top_n: int, temperatura: float, color: di
 
     prendas = slots_compatibles(tipo_prenda)
 
+    print(prendas)
+
     matches = []
     for slot in prendas:
         candidatas = [
@@ -256,7 +266,7 @@ def completar_outfit(tipo_prenda: str, top_n: int, temperatura: float, color: di
 
         # Calculamos el score de TODAS las candidatas del slot una sola vez
         candidatas_con_score = [
-            (score_prenda_candidata(color['hex'], c, query_emb), c)
+            (score_prenda_candidata(color, c, query_emb), c)
             for c in candidatas
         ]
         candidatas_con_score.sort(key=lambda x: x[0], reverse=True)
