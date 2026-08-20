@@ -6,7 +6,8 @@ def normalizar_vector(vec: np.ndarray) -> list[float]:
     
     Parameters
     ----------
-    vec: el vector
+    vec: np.ndarray
+        el vector
     
     Precondition
     ------------

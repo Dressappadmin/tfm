@@ -47,6 +47,6 @@ def cargar_imagen_url_bucket(url: str, timeout: int = 10) -> Image.Image:
             f"Error de comunicación al descargar la imagen desde el bucket ({url}): {error_red}"
         ) from error_red
     except Exception as error_imagen:
-        raise RuntimeError(
+        raise ValueError(
             f"El archivo descargado de '{url}' no pudo procesarse como una imagen válida: {error_imagen}"
         ) from error_imagen

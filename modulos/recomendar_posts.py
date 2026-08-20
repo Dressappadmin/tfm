@@ -1,9 +1,23 @@
 from datetime import datetime, timezone
 import numpy as np
-from typing import List, Dict, Any, Optional, Set
+from typing import Any
 
-def similitud_coseno(vec_a: Optional[List[float]], vec_b: Optional[List[float]]) -> float:
-    """Calcula la similitud coseno entre dos vectores."""
+def similitud_coseno(vec_a: list[float] | None, vec_b: list[float] | None) -> float:
+    '''
+    Calcula la similitud matemática (coseno) entre dos vectores de características.
+    
+    Parameters
+    ----------
+    vec_a : list[float] | None
+        Primer vector (ej. embedding del perfil de estilo del usuario).
+    vec_b : list[float] | None
+        Segundo vector (ej. embedding del outfit de un post candidato).
+        
+    Returns
+    -------
+    float
+        Valor de similitud. Mayor a 0 indica similitud, 0 si falta algún vector.
+    '''
     if not vec_a or not vec_b:
         return 0.0
     return float(np.dot(vec_a, vec_b))
@@ -15,7 +29,31 @@ def calcular_viralidad_temporal(
     created_at_iso: str,
     gravedad: float = 1.5
 ) -> float:
-    """Calcula el éxito viral penalizando el tiempo transcurrido (Time Decay)."""
+    '''
+    Calcula el éxito viral de un post penalizando el tiempo transcurrido (Time Decay).
+    
+    Utiliza una fórmula inspirada en el algoritmo de Hacker News, donde las 
+    interacciones recientes valen más que las antiguas para garantizar un feed fresco.
+    
+    Parameters
+    ----------
+    likes : int
+        Número de "me gusta" del post.
+    reposts : int
+        Número de veces que el post ha sido guardado/compartido (peso x2.0).
+    comentarios : int
+        Cantidad de comentarios en el post (peso x1.5).
+    created_at_iso : str
+        Fecha de creación del post en formato ISO 8601 (ej. "2024-05-12T14:30:00Z").
+    gravedad : float, opcional
+        Exponente de decaimiento temporal. A mayor gravedad, más rápido pierden 
+        relevancia los posts antiguos. Por defecto 1.5.
+        
+    Returns
+    -------
+    float
+        Puntuación de viralidad ajustada por frescura temporal.
+    '''
     fecha_post = datetime.fromisoformat(created_at_iso.replace("Z", "+00:00"))
     ahora = datetime.now(timezone.utc)
     horas = max(0.0, (ahora - fecha_post).total_seconds() / 3600.0)
@@ -25,11 +63,29 @@ def calcular_viralidad_temporal(
 
 def calcular_afinidad_social(
     autor_id: str,
-    seguidos_directos: Set[str],
-    amigos_segundo_grado: Set[str],
-    autores_guardados: Set[str]
+    seguidos_directos: set[str],
+    amigos_segundo_grado: set[str],
+    autores_guardados: set[str]
 ) -> float:
-    """Asigna el peso social según el nivel de proximidad en el grafo."""
+    '''
+    Asigna un peso social a un post según la proximidad del autor en el grafo de red.
+    
+    Parameters
+    ----------
+    autor_id : str
+        ID del creador del post candidato.
+    seguidos_directos : set[str]
+        Conjunto de IDs de usuarios a los que el usuario actual sigue directamente.
+    amigos_segundo_grado : set[str]
+        Conjunto de IDs de usuarios que son seguidos por los contactos del usuario.
+    autores_guardados : set[str]
+        Conjunto de IDs de autores con los que el usuario ha interactuado antes.
+        
+    Returns
+    -------
+    float
+        Puntuación social: 1.0 (Directo), 0.6 (2º grado), 0.3 (Histórico), o 0.0 (Desconocido).
+    '''
     if autor_id in seguidos_directos:
         return 1.0
     elif autor_id in amigos_segundo_grado:
@@ -39,18 +95,34 @@ def calcular_afinidad_social(
     return 0.0
 
 def aplicar_deduplicacion_y_exploracion(
-    candidatos_explotacion: List[Dict[str, Any]],
-    candidatos_exploracion: List[Dict[str, Any]],
+    candidatos_explotacion: list[dict[str, Any]],
+    candidatos_exploracion: list[dict[str, Any]],
     tamano_feed: int = 20
-) -> List[Dict[str, Any]]:
-    """
-    Construye el feed final aplicando:
-    1. Deduplicación de autores (máx 2 por feed, nunca consecutivos).
-    2. Inyección e-Greedy en los slots 4 y 14 (posiciones 5 y 15).
-    """
-    feed_final: List[Dict[str, Any]] = []
-    conteo_autores: Dict[str, int] = {}
-    slots_exploracion = {4, 14}
+) -> list[dict[str, Any]]:
+    '''
+    Construye el feed final aplicando reglas de negocio y el algoritmo ε-Greedy.
+    
+    Garantiza diversidad limitando los autores y reserva slots fijos para introducir
+    contenido nuevo (exploración) que rompa la burbuja de filtro (Filter Bubble).
+    
+    Parameters
+    ----------
+    candidatos_explotacion : list[dict[str, Any]]
+        Posts ordenados por la mayor puntuación de recomendación (afinidad + viralidad).
+    candidatos_exploracion : list[dict[str, Any]]
+        Posts muy virales de autores desconocidos para el usuario.
+    tamano_feed : int, opcional
+        Número total de posts a devolver, por defecto 20.
+        
+    Returns
+    -------
+    list[dict[str, Any]]
+        Lista de posts seleccionados para el feed, cumpliendo con la deduplicación 
+        (máx. 2 posts del mismo autor, nunca consecutivos) y con inyección exploratoria.
+    '''
+    feed_final: list[dict[str, Any]] = []
+    conteo_autores: dict[str, int] = {}
+    slots_exploracion = {4, 14}  # Posiciones 5 y 15 (índices 0-based)
     
     idx_explotacion = 0
     idx_exploracion = 0
@@ -59,105 +131,4 @@ def aplicar_deduplicacion_y_exploracion(
         posicion_actual = len(feed_final)
         candidato_seleccionado = None
         
-        # 1. INYECCIÓN DE EXPLORACIÓN (Slots 5 y 15)
-        if posicion_actual in slots_exploracion and idx_exploracion < len(candidatos_exploracion):
-            candidato_seleccionado = candidatos_exploracion[idx_exploracion]
-            idx_exploracion += 1
-        
-        # 2. SELECCIÓN DE EXPLOTACIÓN (Resto de slots)
-        if not candidato_seleccionado and idx_explotacion < len(candidatos_explotacion):
-            # Buscamos el siguiente candidato que cumpla la deduplicación
-            while idx_explotacion < len(candidatos_explotacion):
-                cand = candidatos_explotacion[idx_explotacion]
-                autor = cand.get("autor_id", "")
-                
-                # Regla: Máximo 2 posts por autor en el feed
-                supera_maximo = conteo_autores.get(autor, 0) >= 2
-                # Regla: No permitir el mismo autor que la posición inmediatamente anterior
-                es_consecutivo = (len(feed_final) > 0 and feed_final[-1].get("autor_id") == autor)
-                
-                idx_explotacion += 1
-                
-                if not supera_maximo and not es_consecutivo:
-                    candidato_seleccionado = cand
-                    break
-        
-        # Si no quedan candidatos válidos, rompemos el bucle
-        if not candidato_seleccionado:
-            break
-            
-        autor_sel = candidato_seleccionado.get("autor_id", "")
-        conteo_autores[autor_sel] = conteo_autores.get(autor_sel, 0) + 1
-        feed_final.append(candidato_seleccionado)
-        
-    return feed_final
-
-def generar_feed_personalizado(
-    candidatos: List[Dict[str, Any]], 
-    embedding_usuario: Optional[List[float]],
-    seguidos_directos: Set[str],
-    amigos_segundo_grado: Set[str],
-    autores_guardados: Set[str],
-    temporada_actual: str,
-    pesos: Dict[str, float] = {"w1": 0.40, "w2": 0.30, "w3": 0.20, "w4": 0.10}
-) -> List[Dict[str, Any]]:
-    """
-    Pipeline principal: puntúa candidatos, separa en explotación vs exploración
-    y construye el feed optimizado.
-    """
-    if not embedding_usuario:
-        pesos = {"w1": 0.00, "w2": 0.60, "w3": 0.20, "w4": 0.20}
-
-    # Normalización del score viral
-    scores_virales = [
-        calcular_viralidad_temporal(
-            p.get("likes_count", 0),
-            p.get("reposts_count", 0),
-            p.get("comentarios_count", 0),
-            p.get("created_at", datetime.now(timezone.utc).isoformat())
-        )
-        for p in candidatos
-    ]
-    max_viral = max(scores_virales) if scores_virales and max(scores_virales) > 0 else 1.0
-
-    candidatos_puntuados = []
-    
-    for i, post in enumerate(candidatos):
-        score_visual = similitud_coseno(embedding_usuario, post.get("outfit_embedding"))
-        score_viral_norm = scores_virales[i] / max_viral
-        score_social = calcular_afinidad_social(
-            post.get("autor_id", ""),
-            seguidos_directos,
-            amigos_segundo_grado,
-            autores_guardados
-        )
-        score_contexto = 1.0 if temporada_actual in post.get("temporalidades", []) else 0.0
-
-        score_total = (
-            pesos["w1"] * score_visual +
-            pesos["w2"] * score_viral_norm +
-            pesos["w3"] * score_social +
-            pesos["w4"] * score_contexto
-        )
-
-        post_data = post.copy()
-        post_data["score_recomendacion"] = round(float(score_total), 4)
-        post_data["score_viral_norm"] = round(float(score_viral_norm), 4)
-        post_data["score_social"] = score_social
-        candidatos_puntuados.append(post_data)
-
-    # SEPARACIÓN: Explotación (mayor puntuación general) vs Exploración (alta viralidad, sin afinidad social ni visual alta)
-    candidatos_explotacion = sorted(
-        candidatos_puntuados, key=lambda x: x["score_recomendacion"], reverse=True
-    )
-    
-    candidatos_exploracion = sorted(
-        [
-            p for p in candidatos_puntuados 
-            if p["score_social"] == 0.0 and p.get("autor_id") not in seguidos_directos
-        ],
-        key=lambda x: x["score_viral_norm"],
-        reverse=True
-    )
-
-    return aplicar_deduplicacion_y_exploracion(candidatos_explotacion, candidatos_exploracion, tamano_feed=20)
+        # 1. INYECCIÓN

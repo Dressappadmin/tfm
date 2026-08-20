@@ -1,18 +1,17 @@
 from typing import Any
-from modulos.cargar_bd import outfits
+from data.supabase import supabase
+from config import OUTFITS_TABLA
 
 def registrar_outfit_bd(
     ids_prendas: list[int | str],
     user_id: str | None = None,
     nombre: str | None = None
-) -> dict[str, Any] | None:
+) -> int | str | None:
     """
     Registra un nuevo outfit en la tabla 'outfits' de la base de datos de Supabase.
 
     Parameters
     ----------
-    supabase : Client
-        Cliente inicializado de Supabase.
     ids_prendas : list[int | str]
         Lista de IDs de las prendas que componen el outfit (ej. [102, 450, 891]).
     user_id : str | None, opcional
@@ -22,9 +21,12 @@ def registrar_outfit_bd(
 
     Returns
     -------
-    dict[str, Any] | None
-        Diccionario con el registro insertado si fue exitoso, o None si falló.
+    int | str | None
+        El ID del registro insertado (puede ser entero o UUID string) si fue exitoso, o None si falló.
     """
+
+    outfits = supabase.table(OUTFITS_TABLA)
+
     if not ids_prendas:
         print("⚠️ Advertencia: No se puede registrar un outfit sin prendas.")
         return None
@@ -49,8 +51,12 @@ def registrar_outfit_bd(
         # 3. Validar el resultado
         if respuesta.data and len(respuesta.data) > 0:
             outfit_creado = respuesta.data[0]
-            print(f"✅ Outfit registrado con éxito (ID generado: {outfit_creado.get('id')})")
-            return outfit_creado
+            outfit_id = outfit_creado.get('id')
+            
+            print(f"✅ Outfit registrado con éxito (ID generado: {outfit_id})")
+            
+            # Devolvemos SOLO el ID en lugar de todo el diccionario
+            return outfit_id
 
         print("⚠️ La base de datos no devolvió datos tras la inserción.")
         return None

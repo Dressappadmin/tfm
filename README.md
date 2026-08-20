@@ -10,31 +10,45 @@ Nota: La carpeta del entorno virtual (venv) no se sube a Git porque contiene eje
 
 ```text
 tfm/
-├── .python-version      # Especifica la versión de Python del proyecto (3.11)
-├── .gitignore           # Archivos ignorados por Git (entornos virtuales, cachés, etc.)
-├── .dockerignore        # Archivos ignorados al construir la imagen de Docker
-├── .env.example         # Plantilla de variables de entorno necesarias (ej: claves de Supabase)
-├── requirements.txt     # Listado de librerías y dependencias del proyecto
-├── Dockerfile           # Configuración para empaquetar la aplicación en un contenedor
-├── README.md            # Guía de desarrollo, configuración local y despliegue
-├── config.py            # Configuración general y variables globales de la aplicación
-├── main.py              # Punto de entrada principal y orquestador del proyecto
 │
-├── data/                # Archivos de datos, scripts de carga e imágenes de muestra
-│   ├── db_loader.py     # Script para gestionar la carga de datos en la base de datos
-│   └── ejemplo.jpg      # Imagen de muestra para realizar pruebas locales
+├── modulos/                     # Lógica principal de IA, negocio y algoritmos
+│   ├── __init__.py
+│   ├── buscar_prendas_similares_pgvector.py
+│   ├── buscar_prendas_similares.py      # Búsqueda vectorial en RAM (Similitud Coseno con NumPy)
+│   ├── cargar_modelos.py        # Inicialización de FashionCLIP y rembg en el arranque
+│   ├── completar_outfit.py      # Generación de outfits, detección de color y metadatos AI
+│   ├── eliminar_imagen_bucket.py
+│   ├── eliminar_prenda_bd.py
+│   ├── procesar_imagen.py       # Eliminación de fondo y redimensión de imágenes (PIL)
+│   └── recomendar_posts.py       # Algoritmo híbrido para el feed social de posts
+
 │
-├── modulos/                 # Lógica principal del negocio y pipelines de IA
-│   ├── __init__.py          # Para importar los archivos como librerías
-│   ├── cargar_modelos.py    # Carga, inicialización y gestión de los modelos de machine learning
-│   ├── completar_outfit.py  # Algoritmo de recomendación y generación de conjuntos
-│   ├── procesar_imagen.py   # Limpieza, redimensionado y transformación de imágenes
-│   └── reconocer_prenda.py  # Detección y clasificación de prendas mediante visión artificial
+├── utils/                       # Funciones auxiliares aisladas y reutilizables
+│   ├── __init__.py
+│   ├── calcular_embedding.py         # Extracción del vector de 512 dimensiones
+│   ├── cargar_imagen_url_bucket.py   # Descarga optimizada de imágenes desde URLs/Storage
+│   ├── cargar_imagen_url_publica.py
+│   ├── eliminar_prenda_bd.py
+│   ├── normalizar_vector.py      # Normalización L2 de vectores para similitud
+│   ├── registrar_outfit_bd.py
+│   └── registrar_prenda_bd.py
 │
-└── utils/                   # Funciones auxiliares y herramientas específicas reutilizables
-    ├── __init__.py          # Para importar los archivos como librerías
-    ├── get_embedding.py     # Generación y extracción de vectores/embeddings de prendas
-    └── remove_background.py # Eliminación de fondo en imágenes para aislar la prenda
+├── data/                        # Gestión de persistencia y catálogo en memoria
+│   ├── __init__.py
+│   └── cargar_tabla_memoria.py             # Cliente de Supabase, carga de 'catalog' y matriz NumPy
+│
+├── schemas/                     # Modelos de validación Pydantic (FastAPI input/output)
+│   ├── __init__.py
+│   └── outfits.py               # Esquemas (ej. OutfitMetadataAI, OutfitCreate)
+│
+├── api.py                      # Punto de entrada FastAPI + manejador Lifespan
+├── config.py                    # Variables de entorno y constantes (PRENDAS, OUTFITS)
+├── requirements.txt             # Dependencias del proyecto para el contenedor
+├── Dockerfile                   # Configuración para despliegue en Google Cloud Run
+├── .env                         # Variables de entorno locales (NO SE SUBE A GIT)
+├── .gitignore                   # Archivos y carpetas excluidos del control de versiones
+├── .dockerignore
+└── README.md                    # Documentación, comandos de build y despliegue
 ```
 
 ---

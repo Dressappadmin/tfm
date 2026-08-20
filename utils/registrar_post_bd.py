@@ -1,36 +1,47 @@
-import io
-import uuid
+from utils.registrar_prenda_bd import registrar_prenda_bucket
 from PIL import Image
 from supabase import Client
 
-
-
-
-
-def crear_post_outfit(
+def registrar_post_bd(
     supabase: Client,
     outfit_id: str,
     usuario_id: str,
-    imagen_cuerpo_entero: Image.Image,
+    imagen_cuerpo_entero: Image.Image | None = None,
     pie_de_foto: str | None = None,
     bucket_name: str = "posts-looks"
 ) -> dict:
     """
-    Crea una nueva publicación (Post) asociada a un Outfit existente.
     
     Flujo:
       1. Sube la foto de cuerpo entero al Storage.
       2. Crea el registro en la tabla 'posts' enlazando el 'outfit_id'.
       3. Inicializa 'looks_usuarios' con la foto del autor.
     """
+    """
+    Crea una nueva publicación (Post) asociada a un Outfit existente.
+
+
+    Parameters
+    ----------
+    ids_prendas : list[int | str]
+        Lista de IDs de las prendas que componen el outfit (ej. [102, 450, 891]).
+    user_id : str | None, opcional
+        ID del usuario (UUID o texto) propietario del conjunto, por defecto None.
+    nombre : str | None, opcional
+        Nombre asignado al outfit (ej. "Casual de Verano"), por defecto None.
+
+    Returns
+    -------
+    int | str | None
+        El ID del registro insertado (puede ser entero o UUID string) si fue exitoso, o None si falló.
+    """
     try:
-        # 1. Subir la imagen de cuerpo entero al Storage
-        foto_url = subir_imagen_storage(
-            supabase=supabase,
-            imagen=imagen_cuerpo_entero,
-            usuario_id=usuario_id,
-            bucket_name=bucket_name
-        )
+
+        if imagen_cuerpo_entero != None:
+            # 1. Subir la imagen de cuerpo entero al Storage
+            foto_url = registrar_prenda_bucket(imagen_cuerpo_entero, supabase, usuario_id, bucket_name)
+        else:
+            foto_url = None
 
         # 2. Preparar los datos del post para insertar en base de datos
         datos_post = {
@@ -51,7 +62,7 @@ def crear_post_outfit(
             raise RuntimeError("No se pudo crear el registro en la tabla posts.")
 
         print(f"✅ Post creado con éxito: ID {respuesta.data[0]['id']}")
-        return respuesta.data[0]
+        return respuesta.data[0]['id']
 
     except Exception as e:
         print(f"❌ Error al crear el post del outfit {outfit_id}: {str(e)}")

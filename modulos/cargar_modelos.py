@@ -3,34 +3,47 @@ from transparent_background import Remover
 from config import DEVICE
 
 def cargar_modelos(device: str = DEVICE) -> tuple[CLIPProcessor, CLIPModel, Remover]:
-    
     '''
-    Carga los modelos preentrenados que se utilizan:
-        - FashionCLIP: para el reconocimiento de prendas
-        - Remover: para eliminar el fondo de las imagenes
-    Los modelos se cargan al construir la imagen del docker, asi no se tienen que
-    recargar cada vez que se ejecute main.
+    Descarga e inicializa en la memoria RAM los modelos de Inteligencia Artificial 
+    necesarios para el procesamiento visual de la aplicación.
+    
+    Se encarga de instanciar el procesador y el modelo de FashionCLIP (para la 
+    extracción de embeddings) y el modelo Remover (para la eliminación de fondos). 
+    Esta función debe ejecutarse una única vez durante el ciclo de arranque del 
+    servidor (lifespan) para evitar latencias severas en cada petición HTTP.
     
     Parameters
     ----------
-    device: definido en el archivo config. 
+    device : str, opcional
+        Dispositivo de hardware donde se ejecutarán los modelos tensores 
+        (ej. 'cpu', 'cuda', 'mps'). Por defecto utiliza la constante DEVICE de config.
     
     Precondition
     ------------
-    -
+    El entorno debe disponer de suficiente memoria RAM (recomendado > 4GB) para 
+    alojar ambos modelos simultáneamente. Si es la primera ejecución y no están 
+    cacheados, requerirá conexión a internet para descargar los pesos desde Hugging Face.
     
     Returns
     -------
-    clip_procesor: procesador de fashionclip (<<el traductor>>) 
-    clip_model: modelo de fashionclip (<<el cerebro>>) 
-    remover: modelo que elimina el fondo
+    tuple[CLIPProcessor, CLIPModel, Remover]
+        Una tupla que contiene:
+        - clip_processor: El procesador de FashionCLIP (transforma imágenes/texto a tensores).
+        - clip_model: El modelo FashionCLIP cargado en el dispositivo y en modo evaluación.
+        - remover: La instancia del modelo encargado de segmentar y eliminar fondos.
     '''
 
+    print(f"🧠 Cargando modelos de IA en memoria ({device})...")
+
+    # 1. Cargar el procesador base de CLIP
     clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
+    # 2. Cargar el modelo adaptado al dominio de la moda (FashionCLIP)
     clip_model = CLIPModel.from_pretrained('patrickjohncyh/fashion-clip').to(device)
-    clip_model.eval()
+    clip_model.eval()  # Lo ponemos en modo inferencia, no vamos a entrenarlo
 
+    # 3. Cargar el modelo de eliminación de fondo
     remover = Remover()
     
+    print("✅ Modelos cargados exitosamente.")
     return clip_processor, clip_model, remover

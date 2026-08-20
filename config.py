@@ -1,12 +1,18 @@
 import os
 import torch
 from dotenv import load_dotenv
+from supabase import create_client
 
 # Cargar variables de entorno
 load_dotenv()
 
 # Device
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+# ==========================================
+# LLM
+# ==========================================
+LLM_API_KEY = os.getenv("LLM_API_KEY")
 
 # ==========================================
 # CREDENCIALES Y BD
@@ -21,16 +27,25 @@ PRENDAS_TABLA = 'prendas_usuarios'
 PRENDAS_BUCKET = 'fotos_usuarios'
 
 # ==========================================
-# NOMBRES DE COLUMNAS (Mapeo de BD) 
+# NOMBRES DE COLUMNAS PRENDAS
 # ==========================================
-COL_ID           = 'id'
-COL_NAME         = 'name'
-COL_PRICE        = 'price'
-COL_SECTION      = 'section'
-COL_FAMILY       = 'nombre'
-COL_IMG_URL      = 'img_url'
-COL_AVAILABILITY = 'availability'
-COL_COLOR        = 'main_color_hex'
+ID_PRENDA               = 'id' # PK
+IMG_URL_PRENDA          = 'img_url' # url del bucket
+COLOR_PRENDA            = 'main_color_hex'
+EMBEDDING_PRENDA        = 'embedding'
+TIPO_PRENDA             = '' # ya normalizado, pertenece a CATEGORIAS, más abajo
+SLOT_PRENDA             = '' # ya normalizado, debe pertenecer a SLOTS, más abajo
+OCASION_PRENDA          = '' # fiesta, oficina,...
+TEMPORADA_PRENDA        = '' # primavera, verano, otoño, invierno
+INSPIRACION_PRENDA      = '' # etiquetas libres: harry styles, flores, ...
+
+# ==========================================
+# NOMBRES DE COLUMNAS OUTFITS
+# ==========================================
+ID_OUTFIT               = 'id' # PK
+EMBEDDING_OUTFIT        = 'embedding'
+IDS_PRENDAS_OUTFIT      = ''
+
 
 # ==========================================
 # REGLAS DE NEGOCIO Y LÓGICA DE MODA
