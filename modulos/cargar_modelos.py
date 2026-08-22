@@ -1,6 +1,8 @@
+import torch
 from transformers import CLIPProcessor, CLIPModel
 from transparent_background import Remover
 from config import DEVICE
+from generador_outfits.SequentialOutfitGenerator import SequentialOutfitGenerator
 
 def cargar_modelos(device: str = DEVICE) -> tuple[CLIPProcessor, CLIPModel, Remover]:
     '''
@@ -46,4 +48,14 @@ def cargar_modelos(device: str = DEVICE) -> tuple[CLIPProcessor, CLIPModel, Remo
     remover = Remover()
     
     print("✅ Modelos cargados exitosamente.")
-    return clip_processor, clip_model, remover
+
+    # 4. NUEVO MODELO
+    print("🧠 Cargando red generativa secuencial...")
+    outfit_generator = SequentialOutfitGenerator()
+
+    # Inyectamos el archivo .pth horneado en el Docker
+    outfit_generator.load_state_dict(torch.load("pesos_recomendador_v1.pth", map_location=device))
+    outfit_generator.eval() # Modo inferencia
+    outfit_generator.to(device)
+
+    return clip_processor, clip_model, remover, outfit_generator

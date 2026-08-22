@@ -22,29 +22,29 @@ SUPABASE_URL    = os.getenv("SUPABASE_URL")
 SUPABASE_KEY    = os.getenv("SUPABASE_KEY")
 
 # Tablas y buckets
-OUTFITS_TABLA = 'outfits'
-PRENDAS_TABLA = 'prendas_usuarios'
-PRENDAS_BUCKET = 'fotos_usuarios'
+OUTFITS_TABLA = 'outfit'
+PRENDAS_TABLA = 'prenda'
+PRENDAS_BUCKET = 'armario_usuarios'
 
 # ==========================================
 # NOMBRES DE COLUMNAS PRENDAS
 # ==========================================
 ID_PRENDA               = 'id' # PK
-IMG_URL_PRENDA          = 'img_url' # url del bucket
-COLOR_PRENDA            = 'main_color_hex'
+IMG_URL_PRENDA          = '' # url del bucket
+COLOR_PRENDA            = 'color'
 EMBEDDING_PRENDA        = 'embedding'
-TIPO_PRENDA             = '' # ya normalizado, pertenece a CATEGORIAS, más abajo
-SLOT_PRENDA             = '' # ya normalizado, debe pertenecer a SLOTS, más abajo
-OCASION_PRENDA          = '' # fiesta, oficina,...
-TEMPORADA_PRENDA        = '' # primavera, verano, otoño, invierno
-INSPIRACION_PRENDA      = '' # etiquetas libres: harry styles, flores, ...
+TIPO_PRENDA             = 'categoria' # ya normalizado, pertenece a CATEGORIAS, más abajo
+SLOT_PRENDA             = 'slot' # ya normalizado, debe pertenecer a SLOTS, más abajo
+OCASION_PRENDA          = 'ocasion' # fiesta, oficina,...
+TEMPORADA_PRENDA        = 'temporada' # primavera, verano, otoño, invierno
+INSPIRACION_PRENDA      = 'inspiracion' # etiquetas libres: harry styles, flores, ...
 
 # ==========================================
 # NOMBRES DE COLUMNAS OUTFITS
 # ==========================================
-ID_OUTFIT               = 'id' # PK
+ID_OUTFIT               = 'id_outfit' # PK
 EMBEDDING_OUTFIT        = 'embedding'
-IDS_PRENDAS_OUTFIT      = ''
+IDS_PRENDAS_OUTFIT      = 'ids_prendas'
 
 
 # ==========================================
@@ -69,6 +69,17 @@ SLOTS = {
     'ABRIGO':          ['abrigo', 'anorak', 'chaqueta', 'cazadora', 'gabardina', 'impermeable', 'blazer'],
     'CALZADO':         ['bambas', 'bota plana', 'bota tacon', 'botin plano', 'botin tacon', 'zapato tacon'],
     'ACCESORIO':       ['bisuteria', 'bolso', 'cinturon', 'pañuelo', 'sombrero'],
+}
+
+# Mapeo fijo para asegurar que el orden del multi-hot vector sea siempre el mismo
+# para el modelo avanzado
+SLOT_INDEX = {
+    'SUPERIOR': 0, 
+    'INFERIOR': 1, 
+    'CUERPO_COMPLETO': 2, 
+    'ABRIGO': 3, 
+    'CALZADO': 4, 
+    'ACCESORIO': 5
 }
 
 TOP_K = 5

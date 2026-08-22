@@ -14,13 +14,14 @@ from routers import datos_outfit, datos_prenda, generar_outfit, validar_outfit
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🚀 Arrancando servidor: Cargando modelos de IA en memoria RAM...")
-    processor, model, remover = cargar_modelos()
+    processor, model, remover, outfit_generator = cargar_modelos()
     
     # Inyectamos los modelos en el estado de la app para que los routers puedan usarlos
     app.state.ml_models = {
         "processor": processor,
         "model": model,
-        "remover": remover
+        "remover": remover,
+        "outfit_generator": outfit_generator
     }
     
     print("✅ Modelos cargados con éxito. API lista para recibir peticiones.")

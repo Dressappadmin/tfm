@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Body
 
 # Importamos tu cliente de base de datos y utilidades
 from data.supabase import supabase
-from config import PRENDAS_TABLA, ID_PRENDA, TIPO_PRENDA, SLOT_PRENDA
+from config import PRENDAS_TABLA, ID_PRENDA, SLOT_PRENDA
 
 # Asumo que tienes una función de validación ya creada (ajusta la importación a tu ruta real)
 from modulos.validar_reglas_outfit import validar_reglas_outfit 

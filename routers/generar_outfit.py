@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Body, Request
 from openai import OpenAI
 
 # 1. CONFIGURACIÓN Y CLIENTES
-from config import LLM_API_KEY, PRENDAS_TABLA, COL_ID, COL_EMBEDDING, COL_COLOR, COL_TIPO_PRENDA
+from config import LLM_API_KEY, PRENDAS_TABLA, COL_ID, COL_EMBEDDING, COL_COLOR, COL_TIPO_PRENDA, USE_ADVANCED_MODEL
 from data.supabase import supabase
 
 # 2. SCHEMAS DE VALIDACIÓN
@@ -13,7 +13,7 @@ from schemas.GenerarOutfitExistenteRequest import GenerarOutfitExistenteRequest
 
 # 3. MÓDULOS DE LÓGICA DE IA
 from modulos.procesar_texto import procesar_texto
-from modulos.completar_outfit import completar_outfit
+from modulos.completar_outfit import completar_outfit_con_texto
 
 # Definimos el Router
 router = APIRouter(tags=["Generación Multimodal"])
@@ -66,7 +66,7 @@ async def generar_outfit(
 
         # 3. Generamos las prendas complementarias con el motor de IA
         prendas_complementarias = await asyncio.to_thread(
-            completar_outfit,
+            completar_outfit_con_texto,
             tipo_prenda=tipo_prenda_final,
             top_n=10,
             temperatura=0.2,
