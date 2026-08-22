@@ -11,44 +11,60 @@ Nota: La carpeta del entorno virtual (venv) no se sube a Git porque contiene eje
 ```text
 tfm/
 │
-├── modulos/                     # Lógica principal de IA, negocio y algoritmos
+├── api/                         # Capa de Enrutamiento (Endpoints HTTP)
 │   ├── __init__.py
-│   ├── buscar_prendas_similares_pgvector.py
-│   ├── buscar_prendas_similares.py      # Búsqueda vectorial en RAM (Similitud Coseno con NumPy)
-│   ├── cargar_modelos.py        # Inicialización de FashionCLIP y rembg en el arranque
-│   ├── completar_outfit.py      # Generación de outfits, detección de color y metadatos AI
-│   ├── eliminar_imagen_bucket.py
-│   ├── eliminar_prenda_bd.py
-│   ├── procesar_imagen.py       # Eliminación de fondo y redimensión de imágenes (PIL)
-│   └── recomendar_posts.py       # Algoritmo híbrido para el feed social de posts
-
+│   ├── router_chat.py           # Endpoints del Agente Conversacional (Function Calling)
+│   ├── router_outfits.py        # Endpoints de generación y recomendación multimodal
+│   └── router_prendas.py        # Endpoints CRUD para la gestión del armario del usuario
 │
-├── utils/                       # Funciones auxiliares aisladas y reutilizables
+├── core/                        # Configuración global y ciclo de vida de la app
 │   ├── __init__.py
-│   ├── calcular_embedding.py         # Extracción del vector de 512 dimensiones
-│   ├── cargar_imagen_url_bucket.py   # Descarga optimizada de imágenes desde URLs/Storage
-│   ├── cargar_imagen_url_publica.py
-│   ├── eliminar_prenda_bd.py
-│   ├── normalizar_vector.py      # Normalización L2 de vectores para similitud
-│   ├── registrar_outfit_bd.py
-│   └── registrar_prenda_bd.py
+│   ├── config.py                # Variables de entorno y constantes del sistema
+│   └── cargar_modelos.py        # Lógica de carga de pesos de PyTorch en RAM (Lifespan)
 │
-├── data/                        # Gestión de persistencia y catálogo en memoria
+├── crud/                        # Capa de Acceso a Datos (Supabase / pgvector)
 │   ├── __init__.py
-│   └── cargar_tabla_memoria.py             # Cliente de Supabase, carga de 'catalog' y matriz NumPy
+│   ├── prendas.py               # Consultas SQL y búsquedas de similitud del coseno
+│   ├── outfits.py               # Gestión transaccional de los looks generados
+│   ├── contenido.py             # Operaciones relacionadas con el feed y metadatos
+│   └── storage.py               # Interfaz con Buckets (carga, descarga y gestión de imágenes)
 │
-├── schemas/                     # Modelos de validación Pydantic (FastAPI input/output)
+├── ia/                          # Motor de Deep Learning (Modelos y Pipelines)
 │   ├── __init__.py
-│   └── outfits.py               # Esquemas (ej. OutfitMetadataAI, OutfitCreate)
+│   ├── modelos/
+│   │   └── sequential_generator.py # Arquitectura Multi-Head en PyTorch (GRU + Dense)
+│   ├── device.py                # Especifíca el dispositivo a usar por torch
+│   ├── pipeline_outfit.py       # Orquestador: une la inferencia de PyTorch con pgvector
+│   └── utils_tensores.py        # Transformaciones matemáticas (Multi-hot, Mean Pooling)
 │
-├── api.py                      # Punto de entrada FastAPI + manejador Lifespan
-├── config.py                    # Variables de entorno y constantes (PRENDAS, OUTFITS)
-├── requirements.txt             # Dependencias del proyecto para el contenedor
-├── Dockerfile                   # Configuración para despliegue en Google Cloud Run
-├── .env                         # Variables de entorno locales (NO SE SUBE A GIT)
-├── .gitignore                   # Archivos y carpetas excluidos del control de versiones
-├── .dockerignore
-└── README.md                    # Documentación, comandos de build y despliegue
+├── schemas/                     # Contratos de Datos (Pydantic)
+│   ├── __init__.py
+│   ├── ChatRequest.py           # Validación de entrada para el chat del LLM
+│   └── ...                      # Validadores de request/response para la API
+│
+├── services/                    # Lógica de Negocio y APIs Externas
+│   ├── __init__.py
+│   ├── procesar_imagen.py       # Interfaz con los modelos de Visión Artificial (CLIP)
+│   ├── procesar_texto.py        # Interfaz con LLMs (OpenAI/Gemini) para extracción de entidades
+│   ├── creador_contenido.py     # Generación de metadatos híbridos para posts
+│   └── validaciones.py          # Reglas de negocio duras (compatibilidad de prendas)
+│
+├── training/                    # Entorno de Entrenamiento (No se incluye en Producción)
+│   ├── entrenar_red.py          # Bucle de entrenamiento principal (Epochs, Backprop)
+│   ├── dataset.py               # Lógica del DataLoader (Random Item Drop / Masking)
+│   └── perdida_coseno.py        # Función de pérdida customizada para similitud vectorial
+│
+├── utils/                       # Utilidades transversales y datos estáticos
+│   ├── __init__.py
+│   ├── catalogos.py             # Taxonomías fijas, mapeos de slots y vocabularios
+│   └── helpers.py               # Funciones puras de ayuda genérica
+│
+├── main.py                      # Punto de entrada de FastAPI y registro de Routers
+├── requirements.txt             # Dependencias del proyecto
+├── Dockerfile                   # Receta de construcción de la imagen para Google Cloud Run
+├── .env.example                 # Plantilla de variables de entorno seguras
+├── .dockerignore                # Archivos excluidos del contenedor (ej: /training)
+└── README.md                    # Documentación del proyecto
 ```
 
 ---

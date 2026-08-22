@@ -2,11 +2,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# Importamos solo lo necesario para el arranque
-from modulos.cargar_modelos import cargar_modelos
+# Importamos la lógica de inicialización y nuestro cliente HTTP
+from core.cargar_modelos import cargar_modelos
+from core.api_client import cliente_api
 
-# Importamos nuestro nuevo router
-from routers import datos_outfit, datos_prenda, generar_outfit, validar_outfit
+# Importamos nuestros nuevos routers desde la capa 'api'
+from api import router_chat
+from api import router_outfits
+from api import router_prendas
+from api import router_posts
 
 # =====================================================================
 # CICLO DE VIDA (LIFESPAN)
@@ -14,9 +18,11 @@ from routers import datos_outfit, datos_prenda, generar_outfit, validar_outfit
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🚀 Arrancando servidor: Cargando modelos de IA en memoria RAM...")
+    
+    # 1. Cargamos todos los pesos de PyTorch y HuggingFace
     processor, model, remover, outfit_generator = cargar_modelos()
     
-    # Inyectamos los modelos en el estado de la app para que los routers puedan usarlos
+    # 2. Inyectamos los modelos en el estado de la app para que los routers puedan usarlos
     app.state.ml_models = {
         "processor": processor,
         "model": model,
@@ -25,15 +31,29 @@ async def lifespan(app: FastAPI):
     }
     
     print("✅ Modelos cargados con éxito. API lista para recibir peticiones.")
+    
+    # El servidor se queda aquí "pausado" atendiendo peticiones...
     yield
+    
+    # =====================================================================
+    # APAGADO DEL SERVIDOR (Limpieza)
+    # =====================================================================
+    print("🛑 Apagando servidor, limpiando recursos...")
+    
+    # Vaciamos la memoria RAM de los modelos
     app.state.ml_models.clear()
+    
+    # Cerramos de forma segura las conexiones asíncronas de la API externa
+    await cliente_api.aclose()
+    
+    print("✅ Conexiones de red cerradas correctamente.")
 
 # =====================================================================
 # CONFIGURACIÓN DE FASTAPI
 # =====================================================================
 app = FastAPI(
-    title="OutfitAI API - Buscador Híbrido",
-    description="Generación de Outfits mediante Visión y LLM en 2 pasos",
+    title="OutfitAI API - Core",
+    description="Motor multimodal de IA para generación y recomendación de looks.",
     version="2.0.0",
     lifespan=lifespan
 )
@@ -50,7 +70,8 @@ app.add_middleware(
 # REGISTRO DE ROUTERS
 # =====================================================================
 
-app.include_router(datos_prenda.router)
-app.include_router(datos_outfit.router)
-app.include_router(generar_outfit.router)
-app.include_router(validar_outfit.router)
+# Ahora incluimos los routers que siguen la nueva nomenclatura limpia
+app.include_router(router_prendas.router)
+app.include_router(router_outfits.router)
+app.include_router(router_chat.router)
+app.include_router(router_posts.router)
