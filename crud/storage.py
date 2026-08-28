@@ -1,34 +1,29 @@
 import io
 import httpx
 from PIL import Image
+from core.config import supabase_client, PRENDAS_BUCKET
 
-async def cargar_imagen_url_bucket(url_imagen: str) -> Image.Image:
+async def cargar_imagen_bucket(nombre_archivo: str, bucket_name: str = PRENDAS_BUCKET) -> Image.Image:
     """
-    Descarga una imagen desde una URL (pública o privada del bucket)
+    Descarga una imagen desde el Storage de Supabase usando su nombre de archivo
     y la convierte en un objeto PIL Image listo para los modelos de IA.
     """
     try:
-        # Usamos un cliente nuevo y limpio (sin base_url ni tokens de la API)
-        # Esto es importante por seguridad: no queremos enviar las credenciales 
-        # de nuestra API a un servidor de almacenamiento externo.
+        # 1. Supabase nos genera la URL pública correcta automáticamente
+        url_imagen = supabase_client.storage.from_(bucket_name).get_public_url(nombre_archivo)
+        
+        # 2. Descargamos la imagen asíncronamente
         async with httpx.AsyncClient(timeout=15.0) as client:
             respuesta = await client.get(url_imagen)
-            
-            # Si el bucket devuelve un 404 (no existe) o 403 (prohibido), lanzamos error
             respuesta.raise_for_status()
             
-        # respuesta.content contiene los 'bytes' crudos de la imagen
+        # 3. Procesamos los bytes y forzamos RGB (vital para FashionCLIP)
         imagen_bytes = io.BytesIO(respuesta.content)
-        
-        # Abrimos la imagen con PIL y forzamos el formato RGB 
-        # (vital para evitar errores con imágenes PNG transparentes (RGBA) en FashionCLIP)
         imagen_pil = Image.open(imagen_bytes).convert("RGB")
         
         return imagen_pil
 
     except httpx.HTTPError as e:
-        # Error de red o descarga (ej. URL caída)
-        raise ValueError(f"Error de red al descargar la imagen: {e}")
+        raise ValueError(f"Error de red al descargar la imagen {nombre_archivo}: {str(e)}")
     except Exception as e:
-        # Error al procesar los bytes (ej. la URL no era realmente una imagen)
-        raise ValueError(f"El archivo descargado no es una imagen válida: {e}")
+        raise ValueError(f"El archivo descargado no es una imagen válida o no se encontró: {str(e)}")

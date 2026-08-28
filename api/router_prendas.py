@@ -8,9 +8,9 @@ from crud.prendas import obtener_prenda_por_id, actualizar_prenda_por_id
 from crud.storage import cargar_imagen_url_bucket
 from services.procesar_imagen import procesar_imagen
 from utils.helpers import detectar_slot 
+from core.api_client import URL_ARMARIO_USUARIOS
 
 from core.config import (
-    IMG_URL_PRENDA, 
     COLOR_PRENDA, 
     EMBEDDING_PRENDA, 
     TIPO_PRENDA, 
@@ -23,11 +23,10 @@ router = APIRouter(
     tags=["Gestión de Prendas"]
 )
 
-# La ruta pasa de ser /prendas/datos_prenda/{id} a /prendas/{id}/procesar-ia 
-# (Una nomenclatura más estándar en APIs REST)
-@router.put("/{prenda_id}/procesar-ia")
+
+@router.put("/procesar-ia")
 async def procesar_datos_prenda_ia(
-    prenda_id: str,
+    prenda_ext: str,
     request: Request
 ):
     """
@@ -36,14 +35,9 @@ async def procesar_datos_prenda_ia(
     """
     try:
         # 1. Recuperar datos de la prenda usando nuestra nueva API de datos
-        try:
-            prenda_data = await obtener_prenda_por_id(prenda_id)
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                raise HTTPException(status_code=404, detail="Prenda no encontrada en la base de datos.")
-            raise
-            
-        url_imagen = prenda_data.get(IMG_URL_PRENDA)
+        prenda_id = prenda_ext.split('.')[0]
+
+        url_imagen = URL_ARMARIO_USUARIOS + prenda_ext
         if not url_imagen:
             raise HTTPException(status_code=400, detail="La prenda seleccionada no tiene una URL de imagen.")
 
@@ -75,7 +69,7 @@ async def procesar_datos_prenda_ia(
         }
         
         try:
-            await actualizar_prenda_por_id(prenda_id, datos_actualizacion)
+            await actualizar_prenda_por_id(datos_actualizacion)
         except httpx.HTTPStatusError as e:
              raise HTTPException(status_code=500, detail=f"Error interno al actualizar la base de datos: {e.response.text}")
 

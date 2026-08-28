@@ -3,12 +3,12 @@ import json
 from fastapi import APIRouter, HTTPException, Request, Body
 from openai import OpenAI
 
-from config import LLM_API_KEY
+from core.config import LLM_API_KEY
 from schemas.ChatRequest import ChatRequest
 
 # Importamos la lógica interna de tu red neuronal (asumiendo que la extrajiste a una función)
 # de modo que tanto el endpoint directo como el chat puedan usarla.
-from modulos.ia_pytorch import ejecutar_pipeline_outfit 
+from ia.ejecutar_pipeline_outfit import ejecutar_pipeline_outfit 
 
 router = APIRouter(tags=["Interfaz Conversacional"])
 openai_client = OpenAI(api_key=LLM_API_KEY)

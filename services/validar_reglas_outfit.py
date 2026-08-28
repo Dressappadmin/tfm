@@ -1,4 +1,4 @@
-from config import SLOTS
+from core.config import SLOTS
 
 def validar_reglas_outfit(tipos_prendas: list[str]) -> tuple[bool, str]:
     '''
@@ -50,6 +50,8 @@ def validar_reglas_outfit(tipos_prendas: list[str]) -> tuple[bool, str]:
     # --- APLICACIÓN DE REGLAS DE MODA ---
 
     # Regla A: Lógica de pies
+    if conteos['CALZADO'] == 0:
+        return False, "Todo outfit debe llevar calzado."
     if conteos['CALZADO'] > 1:
         return False, "¡Ups! No puedes incluir más de un par de calzado en un mismo outfit."
 

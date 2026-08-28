@@ -1,4 +1,4 @@
-from utils.perdida_coseno import perdida_coseno
+from training.perdida_coseno import perdida_coseno
 
 def entrenar_epoca(modelo, dataloader, optimizer):
     modelo.train()

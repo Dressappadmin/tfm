@@ -1,4 +1,4 @@
-from config import SLOTS, TODOS_LOS_SLOTS
+from core.config import SLOTS, TODOS_LOS_SLOTS
 
 def detectar_slot(prenda: str, dic: dict[str, list[str]] = SLOTS) -> str:
     '''

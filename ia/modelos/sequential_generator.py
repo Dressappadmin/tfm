@@ -2,12 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
 class SequentialOutfitGenerator(nn.Module):
-    def __init__(self, clip_dim=512, hidden_dim=256, color_dim=3, rnn_layers=1, num_tags=20):
+    def __init__(self, clip_dim=512, hidden_dim=256, color_dim=3, rnn_layers=1, num_tags=9):
         super(SequentialOutfitGenerator, self).__init__()
         
         self.num_slots = 6 # Superior, Inferior, Completo, Abrigo, Calzado, Accesorio

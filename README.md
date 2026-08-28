@@ -171,7 +171,12 @@ Instrucciones para empaquetar la aplicación y subirla a producción en Google C
    sudo dnf install gcloud
 
 ### Paso 2: Autenticación en Google Cloud
-Iniciar sesión en Google desde la terminal nos permite enlazar nuestra terminal con los servidores para ejecutar ahí comandos con el prefijo gcloud:
+Iniciar sesión en Google desde la terminal nos permite enlazar nuestra terminal con los servidores para ejecutar ahí comandos con el prefijo gcloud.
+
+Si ya teníamos otra sesión iniciada:
+   gcloud auth revoke --all
+
+A continuación:
 
    gcloud auth login
    gcloud config set project dressapp-503311
@@ -203,6 +208,8 @@ Ejecuta los siguientes comandos en orden (cambiando el 7 por la versión que toq
          --image europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v7-dev \
          --region europe-southwest1 \
          --set-env-vars SUPABASE_URL="tu_url_de_supabase",SUPABASE_KEY="tu_anon_key_de_supabase"
+
+
 
 ---
 

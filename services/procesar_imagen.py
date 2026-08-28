@@ -1,12 +1,12 @@
 import numpy as np
 import torch
-from typing import Any
 from PIL import Image
 from sklearn.cluster import KMeans
-from config import CATEGORIAS, DEVICE
 from transformers import CLIPProcessor, CLIPModel
 from transparent_background import Remover
 import numpy as np
+from core.config import CATEGORIAS
+from ia.device import DEVICE
 
 
 def calcular_embedding_imagen(img: Image.Image, processor: CLIPProcessor, model: CLIPModel,) -> np.ndarray:

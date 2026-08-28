@@ -16,5 +16,3 @@ fastapi
 uvicorn
 python-multipart
 openai
-mlflow
-httpx

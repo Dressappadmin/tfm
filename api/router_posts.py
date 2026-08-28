@@ -8,7 +8,8 @@ from core.api_client import cliente_api
 # Importamos la lógica de IA y CRUD
 from ia.ejecutar_pipeline_outfit import ejecutar_pipeline_outfit
 from crud.outfits import registrar_outfit_bd
-from crud.contenido import registrar_post_bd
+from crud.posts import registrar_post_bd, obtener_posts_recomendados
+from crud.prendas import obtener_prenda_aleatoria
 from services.generador_contenido import generar_metadatos_hibridos
 
 router = APIRouter(
@@ -17,19 +18,6 @@ router = APIRouter(
 )
 
 openai_client = OpenAI(api_key=LLM_API_KEY)
-
-# Función auxiliar para la base de datos (podrías moverla a crud/prendas.py)
-async def obtener_prenda_aleatoria() -> dict:
-    """Pide a la API externa una prenda al azar."""
-    try:
-        # Asumimos que la API tiene un endpoint para esto. 
-        # Si no, tendrías que pedir una lista y usar random.choice()
-        respuesta = await cliente_api.get("/prendas/aleatoria") 
-        respuesta.raise_for_status()
-        return respuesta.json()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error obteniendo prenda aleatoria: {e}")
-
 
 @router.post("/generar-automatico")
 async def generar_post_automatico(request: Request):
@@ -101,3 +89,20 @@ async def generar_post_automatico(request: Request):
     except Exception as e:
         import traceback
         raise HTTPException(status_code=500, detail=traceback.format_exc())
+
+@router.get("/feed/{usuario_id}")
+async def ver_feed_usuario(usuario_id: str, limite: int = 10, pagina: int = 1):
+    """
+    Devuelve los posts recomendados para el feed principal de un usuario.
+    """
+    try:
+        posts = await obtener_posts_recomendados(usuario_id, limite, pagina)
+        
+        return {
+            "status": "success",
+            "pagina": pagina,
+            "resultados": len(posts),
+            "feed": posts
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error al cargar el feed.")

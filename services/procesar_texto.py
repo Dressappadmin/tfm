@@ -2,9 +2,8 @@ import numpy as np
 import torch
 from openai import OpenAI
 from transformers import CLIPProcessor, CLIPModel
-
-from config import DEVICE
 from schemas.OutfitMetadataAI import OutfitMetadataAI
+from ia.device import DEVICE
 
 def calcular_embedding_texto(
     texto: str, 
