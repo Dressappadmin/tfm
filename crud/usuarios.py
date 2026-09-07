@@ -1,10 +1,14 @@
 import random
+import asyncio
 
-def obtener_historial(usuario_id: str, max_items: int = 10):
+async def obtener_historial(usuario_id: str, max_items: int = 10):
     """
     Mock que simula la respuesta de una base de datos.
     Devuelve las últimas interacciones positivas del usuario.
     """
+    # Simulamos los milisegundos que tardaría PostgreSQL/Supabase en responder
+    await asyncio.sleep(0.1)
+    
     historial = []
     
     # Simulamos que el usuario tiene entre 3 y max_items prendas en su historial
@@ -17,7 +21,6 @@ def obtener_historial(usuario_id: str, max_items: int = 10):
     
     for i in range(num_prendas):
         # Simulamos un embedding CLIP de tamaño 512 (valores aleatorios entre -1 y 1)
-        # En la vida real, esto lo sacas de tu base de datos vectorial o PostgreSQL (pgvector)
         vector_falso = [random.uniform(-1.0, 1.0) for _ in range(512)]
         
         item = {

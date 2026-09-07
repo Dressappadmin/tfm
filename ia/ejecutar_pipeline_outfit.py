@@ -17,7 +17,7 @@ async def ejecutar_pipeline_outfit(app_state, usuario_id: str, prendas_input: di
     Agrupa toda la lógica de Inferencia PyTorch + Búsqueda en pgvector adaptada para AttentionOutfitGenerator.
     """
     # 1. Recuperamos la nueva red
-    red_generadora = app_state.ml_models["attention_generator"]
+    red_generadora = app_state.ml_models["outfit_generator"]
     
     prendas_input_norm = {k.strip().upper(): v for k, v in prendas_input.items()} if prendas_input else {}
     

@@ -237,7 +237,6 @@ En prod:
    sudo docker build -t europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1 .
    sudo docker push europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1
    gcloud run deploy outfitai-api --image europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1 --region europe-southwest1 --set-env-vars 
-
 En dev:
    gcloud auth print-access-token | sudo docker login -u oauth2accesstoken --password-stdin https://europe-southwest1-docker.pkg.dev
    sudo docker build -t europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v7-dev .
@@ -257,7 +256,7 @@ Para el otro docker:
    gcloud auth print-access-token | sudo docker login -u oauth2accesstoken --password-stdin https://europe-southwest1-docker.pkg.dev
    sudo docker build -t europe-southwest1-docker.pkg.dev/tfm-outfit-rater/outfitai-repo/outfit-app:v1 .
    sudo docker push europe-southwest1-docker.pkg.dev/tfm-outfit-rater/outfitai-repo/outfit-app:v1
-   gcloud run deploy outfit-app --image europe-southwest1-docker.pkg.dev/tfm-outfit-rater/outfitai-repo/outfit-app:v1 --region europe-southwest1 --set-env-vars 
+   gcloud run deploy outfit-app --image europe-southwest1-docker.pkg.dev/tfm-outfit-rater/outfitai-repo/outfit-app:v1 --region europe-southwest1 
 
 ### Probar la api en local
 Abre una terminal de VSCode y escribe
