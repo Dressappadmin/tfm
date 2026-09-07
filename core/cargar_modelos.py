@@ -1,10 +1,9 @@
-import torch
 from transformers import CLIPProcessor, CLIPModel
 from transparent_background import Remover
-from config import DEVICE
-from generador_outfits.SequentialOutfitGenerator import SequentialOutfitGenerator
+from ia.device import DEVICE
+from ia.modelos.AttentionOutfitGenerator import AttentionOutfitGenerator
 
-def cargar_modelos(device: str = DEVICE) -> tuple[CLIPProcessor, CLIPModel, Remover]:
+def cargar_modelos(device: str = DEVICE) -> tuple[CLIPProcessor, CLIPModel, Remover, AttentionOutfitGenerator]:
     '''
     Descarga e inicializa en la memoria RAM los modelos de Inteligencia Artificial 
     necesarios para el procesamiento visual de la aplicación.
@@ -51,10 +50,12 @@ def cargar_modelos(device: str = DEVICE) -> tuple[CLIPProcessor, CLIPModel, Remo
 
     # 4. NUEVO MODELO
     print("🧠 Cargando red generativa secuencial...")
-    outfit_generator = SequentialOutfitGenerator()
+    outfit_generator = AttentionOutfitGenerator()
 
     # Inyectamos el archivo .pth horneado en el Docker
-    outfit_generator.load_state_dict(torch.load("pesos_recomendador_v1.pth", map_location=device))
+    #outfit_generator.load_state_dict(torch.load("pesos_recomendador_v1.pth", map_location=device))
+    #print(f"Pesos cargados correctamente desde {"pesos_recomendador_v1.pth"}.")
+
     outfit_generator.eval() # Modo inferencia
     outfit_generator.to(device)
 

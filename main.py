@@ -10,7 +10,7 @@ from core.api_client import cliente_api
 from api import router_chat
 from api import router_outfits
 from api import router_prendas
-from api import router_posts
+#from api import router_posts
 
 # =====================================================================
 # CICLO DE VIDA (LIFESPAN)
@@ -74,4 +74,4 @@ app.add_middleware(
 app.include_router(router_prendas.router)
 app.include_router(router_outfits.router)
 app.include_router(router_chat.router)
-app.include_router(router_posts.router)
+#app.include_router(router_posts.router)

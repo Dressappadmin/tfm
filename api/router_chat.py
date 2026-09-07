@@ -4,29 +4,32 @@ from fastapi import APIRouter, HTTPException, Request, Body
 from openai import OpenAI
 
 from core.config import LLM_API_KEY
+from utils.catalogos import VOCABULARIO_TAGS
 from schemas.ChatRequest import ChatRequest
 
-# Importamos la lógica interna de tu red neuronal (asumiendo que la extrajiste a una función)
-# de modo que tanto el endpoint directo como el chat puedan usarla.
+# Importamos la lógica interna y la función de BD
 from ia.ejecutar_pipeline_outfit import ejecutar_pipeline_outfit 
+from crud.prendas import obtener_prenda_por_id
 
 router = APIRouter(tags=["Interfaz Conversacional"])
 openai_client = OpenAI(api_key=LLM_API_KEY)
 
-# Definimos la herramienta (Tool) para el LLM
 HERRAMIENTAS_CHAT = [
     {
         "type": "function",
         "function": {
             "name": "generar_outfit_pytorch",
-            "description": "Llama al motor de Deep Learning para generar un outfit completo. Úsalo SIEMPRE que el usuario pida recomendaciones de ropa, qué ponerse, o cómo combinar algo.",
+            "description": "Llama al motor de Deep Learning para generar un outfit completo. Úsalo SIEMPRE que el usuario pida recomendaciones de ropa.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "etiquetas_extraidas": {
                         "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Lista de etiquetas exactas de la taxonomía (ej: 'Casual', 'Verano', 'Fiesta')."
+                        "items": {
+                            "type": "string",
+                            "enum": VOCABULARIO_TAGS 
+                        },
+                        "description": "Clasifica la petición del usuario usando ÚNICAMENTE las etiquetas de esta lista."
                     },
                     "color_solicitado": {
                         "type": "string",
@@ -45,45 +48,69 @@ async def conversacion_ia(
     datos: ChatRequest = Body(...)
 ):
     try:
-        # 1. Preparamos el historial de mensajes para OpenAI
-        mensajes_formateados = [{"role": m.role, "content": m.content} for m in datos.mensajes]
+        MAX_MENSAJES = 6 
+        mensajes_recientes = datos.mensajes[-MAX_MENSAJES:] 
         
-        # Inyectamos un System Prompt robusto
+        # Como Pydantic ya fuerza a que sea "user" o "assistant", el check de != "system" es un extra de seguridad
+        mensajes_formateados = [
+            {"role": m.role, "content": m.content} 
+            for m in mensajes_recientes 
+            if m.role != "system"
+        ]
+        
         system_prompt = {
             "role": "system",
-            "content": "Eres el asistente personal de estilo de OutfitAI. Tu objetivo es ayudar al usuario a encontrar qué ponerse. Eres amable, conciso y experto en moda. Si el usuario te pide un look, DEBES usar la función generar_outfit_pytorch para dárselo."
+            "content": f"Eres el asistente personal de estilo de DressApp. Eres amable y experto en moda. Si el usuario pide un look, usa la función generar_outfit_pytorch. Las categorías válidas son: {', '.join(VOCABULARIO_TAGS)}. Adapta el lenguaje del usuario a estas categorías."
         }
+
         mensajes_formateados.insert(0, system_prompt)
 
-        # 2. Llamada a GPT-4o-mini
         respuesta_llm = await asyncio.to_thread(
             openai_client.chat.completions.create,
             model="gpt-4o-mini",
             messages=mensajes_formateados,
             tools=HERRAMIENTAS_CHAT,
-            tool_choice="auto" # El modelo decide si responde con texto o llama a la herramienta
+            tool_choice="auto" 
         )
 
         mensaje_respuesta = respuesta_llm.choices[0].message
         
-        # 3. ¿El LLM decidió usar la red neuronal?
         if mensaje_respuesta.tool_calls:
             tool_call = mensaje_respuesta.tool_calls[0]
             
             if tool_call.function.name == "generar_outfit_pytorch":
-                # Extraemos los argumentos que el LLM dedujo del chat
                 argumentos = json.loads(tool_call.function.arguments)
                 tags = argumentos.get("etiquetas_extraidas", [])
-                color = argumentos.get("color_solicitado", None)
+                color_llm = argumentos.get("color_solicitado", None)
                 
-                # Ejecutamos tu pipeline de PyTorch (el que creamos en el paso anterior)
-                # Pasamos los inputs que tengamos (el contexto de la prenda si lo hay, el historial del usuario, etc.)
+                # --- NUEVA LÓGICA DE PRENDAS (Igual que en el Endpoint 3) ---
+                prendas_input_dict = {}
+                color_prenda = None
+                
+                if datos.contexto_prenda_id:
+                    for prenda_id in datos.contexto_prenda_id:
+                        prenda_db = await obtener_prenda_por_id(prenda_id)
+                        
+                        if prenda_db:
+                            slot = prenda_db.get("slot")
+                            color = prenda_db.get("color")
+                            
+                            if slot:
+                                prendas_input_dict[slot] = prenda_id
+                            
+                            if color and color_prenda is None:
+                                color_prenda = color
+
+                # Priorizamos el color que el usuario haya pedido en el chat. 
+                # Si no pidió ninguno, usamos el color de la prenda de contexto.
+                color_final = color_llm if color_llm else color_prenda
+                
                 outfit_generado = await ejecutar_pipeline_outfit(
                     app_state=request.app.state,
                     usuario_id=datos.usuario_id,
-                    prendas_input=datos.contexto_prenda_id or {},
+                    prendas_input=prendas_input_dict,
                     tags_llm=tags,
-                    color_hex=color
+                    color_hex=color_final
                 )
                 
                 return {
@@ -93,7 +120,6 @@ async def conversacion_ia(
                     "debug_tags_usados": tags
                 }
 
-        # 4. Si el LLM solo quiso hablar (ej: "¡Hola! ¿En qué te ayudo hoy?")
         return {
             "tipo": "TEXTO_PLANO",
             "mensaje_texto": mensaje_respuesta.content,

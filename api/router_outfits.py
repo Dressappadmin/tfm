@@ -4,8 +4,9 @@ from fastapi import APIRouter, HTTPException, Body, Request
 from openai import OpenAI
 
 # Configuración y utilidades
-from core.config import LLM_API_KEY, SLOT_PRENDA, EMBEDDING_PRENDA
+from core.config import LLM_API_KEY, SLOT_PRENDA, EMBEDDING_PRENDA, IDS_PRENDAS_OUTFIT, COLOR_PRENDA
 from schemas.ValidarOutfitRequest import ValidarOutfitRequest
+from schemas.OutfitEmbeddingRequest import OutfitEmbeddingRequest
 from schemas.GenerarOutfitRequest import GenerarOutfitRequest
 
 # Lógica de Negocio (Servicios)
@@ -14,7 +15,7 @@ from ia.ejecutar_pipeline_outfit import ejecutar_pipeline_outfit
 
 # Lógica de Datos (CRUD a través de la API externa)
 from crud.prendas import obtener_varias_prendas_por_id, obtener_prenda_por_id
-from crud.outfits import obtener_outfit_por_id, actualizar_embedding_outfit
+from crud.outfits import obtener_outfit_por_id, actualizar_outfit_por_id
 
 router = APIRouter(
     prefix="/outfits", 
@@ -37,7 +38,6 @@ async def validar_outfit(request: ValidarOutfitRequest):
         if not prendas_ids:
             raise HTTPException(status_code=400, detail="La lista de prendas está vacía.")
 
-        # Sustituimos el in_() de Supabase por nuestra llamada a la API
         try:
             prendas_db = await obtener_varias_prendas_por_id(prendas_ids)
         except httpx.HTTPError:
@@ -71,20 +71,23 @@ async def validar_outfit(request: ValidarOutfitRequest):
 # ---------------------------------------------------------
 # ENDPOINT 2: CALCULAR CAMPOS DEL OUTFIT (MEAN POOLING)
 # ---------------------------------------------------------
-@router.put("/{outfit_id}/calcular-embedding")
-async def calcular_embedding_outfit(outfit_id: str):
+@router.post("/calcular-embedding")
+async def calcular_embedding_outfit(request: OutfitEmbeddingRequest):
     """
     Calcula el vector característico (embedding) de un outfit como
     la media normalizada de los embeddings de sus prendas y lo guarda.
     """
     try:
+        # Extraemos el ID del body de la petición
+        outfit_id = request.outfit_id
+
         # 1. Recuperar los IDs de las prendas del outfit vía API
         try:
             outfit_data = await obtener_outfit_por_id(outfit_id)
         except httpx.HTTPError:
              raise HTTPException(status_code=404, detail="Outfit no encontrado.")
             
-        prendas_ids = outfit_data.get("ids_prendas", [])
+        prendas_ids = outfit_data.get(IDS_PRENDAS_OUTFIT, [])
         if not prendas_ids:
             raise HTTPException(status_code=400, detail="El outfit no tiene prendas asignadas.")
 
@@ -106,7 +109,7 @@ async def calcular_embedding_outfit(outfit_id: str):
 
         # 4. Actualizar la tabla OUTFITS vía API (PATCH)
         try:
-            await actualizar_embedding_outfit(outfit_id, outfit_embedding_final)
+            await actualizar_outfit_por_id(outfit_id, outfit_embedding_final)
         except httpx.HTTPError:
              raise HTTPException(status_code=500, detail="Error interno al actualizar el embedding en la BD.")
 
@@ -129,25 +132,46 @@ async def calcular_embedding_outfit(outfit_id: str):
 @router.post("/generar")
 async def generar_outfit_avanzado(
     request: Request,
-    datos: GenerarOutfitRequest = Body(...)
+    datos: GenerarOutfitRequest
 ):
     """
-    Endpoint principal de generación. Usa la red PyTorch y búsqueda pgvector.
+    Endpoint principal de generación directa. Usa la red PyTorch y búsqueda pgvector.
+    Ideal para peticiones desde botones y filtros de la interfaz (sin texto libre).
     """
     try:
-        # Toda la lógica de PyTorch, LLM y Base de Datos (CRUD) está abstraída 
-        # dentro de esta función, que ya la adaptamos en la carpeta `ia/`
-        prendas_db, outfit_generado = await ejecutar_pipeline_outfit(
+        prendas_input_dict = {}
+        color_extraido = None
+        
+        # Si el usuario envió IDs de prendas, buscamos sus detalles usando tu función
+        if datos.prendas_input:
+            for prenda_id in datos.prendas_input:
+                prenda_db = await obtener_prenda_por_id(prenda_id)
+                
+                if not prenda_db:
+                    raise HTTPException(status_code=404, detail=f"No se encontró la prenda con ID: {prenda_id}")
+                
+                # Extraemos el slot y el color (asumiendo que las columnas se llaman así)
+                slot = prenda_db.get(SLOT_PRENDA)
+                color = prenda_db.get(COLOR_PRENDA)
+                
+                if slot:
+                    prendas_input_dict[slot] = prenda_id
+                
+                # Nos quedamos con el color de la primera prenda que tenga uno definido
+                if color and color_extraido is None:
+                    color_extraido = color
+
+        # Llamamos al pipeline unificado pasándole los parámetros reconstruidos
+        outfit_generado = await ejecutar_pipeline_outfit(
             app_state=request.app.state,
-            prendas_input_dict=datos.prendas_input,
-            historial_ids=datos.historial_usuario_ids,
-            texto=datos.texto,
-            openai_client=openai_client
+            usuario_id=datos.usuario_id,
+            prendas_input=prendas_input_dict, # Pasamos el diccionario {slot: id}
+            tags_llm=datos.tags,
+            color_hex=color_extraido          # Pasamos el color recuperado
         )
 
         return {
             "status": "success",
-            "prendas_input": prendas_db,
             "outfit_generado": outfit_generado,
             "mensaje": "Outfit generado inteligentemente mediante Deep Learning."
         }
@@ -157,3 +181,5 @@ async def generar_outfit_avanzado(
     except Exception as e:
         import traceback
         raise HTTPException(status_code=500, detail=traceback.format_exc())
+
+        

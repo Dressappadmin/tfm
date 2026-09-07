@@ -5,12 +5,12 @@ import random
 import time
 
 SLOTS = { 
-    'SUPERIOR':        ['camiseta', 'camisa', 'tops y otras p.', 'jersey', 'sudadera', 'body', 'chaleco'],
-    'INFERIOR':        ['pantalon', 'falda', 'short', 'bermuda', 'leggings'],
-    'CUERPO_COMPLETO': ['vestido', 'mono', 'peto'],
-    'ABRIGO':          ['abrigo', 'anorak', 'chaqueta', 'cazadora', 'gabardina impermea', 'blazer'],
-    'CALZADO':         ['bambas', 'bota plana', 'bota tacon', 'botin plano', 'botin tacon', 'zapato tacon', 'zapato plano', 'sandalia tacon', 'sandalia plana', 'calzado deportivo'],
-    'ACCESORIO':       ['bisuteria', 'bolsos', 'cinturones', 'pañoletas/foulard', 'gorro', 'paraguas', 'monedero billetera', 'complementos', 'accesorios', 'guante'],
+    'SUPERIOR':        ['camisetas', 'camisas y blusas', 'tops y bodies', 'jerseys y cardigans', 'sudaderas', 'blazers y chalecos'],
+    'INFERIOR':        ['pantalones', 'jeans', 'faldas', 'shorts y bermudas'],
+    'CUERPO_COMPLETO': ['vestidos', 'monos y petos'],
+    'ABRIGO':          ['abrigos', 'chaquetas y cazadoras'],
+    'CALZADO':         ['zapatos'],
+    'ACCESORIO':       ['accesorios', 'bolsos']
 }
 
 # Inicializar cliente de Supabase
@@ -26,8 +26,10 @@ supabase = init_connection()
 # 1. DICCIONARIO Y REGLAS DE NEGOCIO
 # ==========================================
 def validar_reglas_outfit(tipos_prendas: list[str]) -> tuple[bool, str]:
-    mapa_prendas = {prenda: slot for slot, prendas in SLOTS.items() for prenda in prendas}
+    mapa_prendas = {prenda.strip().lower(): slot for slot, prendas in SLOTS.items() for prenda in prendas}
     conteos = {slot: 0 for slot in SLOTS.keys()}
+    
+    tiene_monos_petos = False
 
     for item in tipos_prendas:
         item_norm = item.strip().lower()
@@ -38,13 +40,27 @@ def validar_reglas_outfit(tipos_prendas: list[str]) -> tuple[bool, str]:
         elif item_norm in mapa_prendas:
             slot = mapa_prendas[item_norm]
             conteos[slot] += 1
+            
+        if item_norm == 'monos y petos':
+            tiene_monos_petos = True
 
     if conteos['CALZADO'] > 1:
         return False, "¡Ups! No puedes incluir más de un par de calzado en un mismo outfit."
     if conteos['CALZADO'] == 0:
         return False, "Todo outfit debe llevar calzado."
-    if conteos['CUERPO_COMPLETO'] > 0 and (conteos['SUPERIOR'] > 0 or conteos['INFERIOR'] > 0):
-        return False, "Si has elegido una prenda de cuerpo entero, no debes añadir partes superiores ni inferiores extra."
+        
+    if conteos['CUERPO_COMPLETO'] > 0:
+        if conteos['CUERPO_COMPLETO'] > 1:
+            return False, "No puedes incluir más de una prenda de cuerpo completo a la vez."
+            
+        if tiene_monos_petos:
+            if conteos['INFERIOR'] > 0:
+                return False, "Si llevas un mono o peto, no puedes añadir partes inferiores extra."
+            if conteos['SUPERIOR'] > 2:
+                return False, "Con un mono o peto puedes llevar como máximo dos partes superiores (ej. camiseta y sudadera)."
+        else:
+            if conteos['SUPERIOR'] > 0 or conteos['INFERIOR'] > 0:
+                return False, "Si has elegido un vestido, no debes añadir partes superiores ni inferiores extra."
 
     tiene_base_valida = (conteos['SUPERIOR'] >= 1 and conteos['INFERIOR'] >= 1) or (conteos['CUERPO_COMPLETO'] == 1)
     
@@ -67,22 +83,72 @@ def validar_reglas_outfit(tipos_prendas: list[str]) -> tuple[bool, str]:
 # ==========================================
 # 2. SIMULADOR DE BASE DE DATOS
 # ==========================================
-def obtener_prenda_aleatoria(slot_buscado: str) -> dict:
-    categoria_elegida = random.choice(SLOTS[slot_buscado])
+@st.cache_data(ttl=60)
+def obtener_ids_defectuosos():
+    try:
+        res = supabase.table("defectuosos").select("prenda_id").execute()
+        return [str(r["prenda_id"]) for r in res.data]
+    except:
+        return []
+
+def obtener_prenda_aleatoria(slot_buscado: str, categoria_fija: str = None) -> dict:
+    categoria_elegida = categoria_fija if categoria_fija else random.choice(SLOTS[slot_buscado])
+    ids_malos = obtener_ids_defectuosos()
     
-    respuesta = supabase.table("zara_imgs_wback").select("id, img_url").ilike("family", categoria_elegida).execute()
-    prendas_disponibles = respuesta.data
+    query_conteo = supabase.table("vista_ropa_unificada") \
+        .select("id", count="exact") \
+        .ilike("family_unificada", categoria_elegida)
+        
+    query_datos = supabase.table("vista_ropa_unificada") \
+        .select("id, img_url, marca") \
+        .ilike("family_unificada", categoria_elegida)
+        
+    if ids_malos:
+        filtro_excluir = f"({','.join(ids_malos)})"
+        query_conteo = query_conteo.filter("id", "not.in", filtro_excluir)
+        query_datos = query_datos.filter("id", "not.in", filtro_excluir)
     
-    if not prendas_disponibles:
+    try:
+        conteo = query_conteo.limit(1).execute()
+        total_prendas = conteo.count
+    except Exception as e:
+        total_prendas = 0
+    
+    if total_prendas == 0 or total_prendas is None:
         return {
             "id": "ERROR",
             "url": "https://placehold.co/300x400?text=SIN+FOTOS",
             "categoria": categoria_elegida,
             "slot": slot_buscado
         }
-        
-    prenda_seleccionada = random.choice(prendas_disponibles)
-    url_limpia = prenda_seleccionada["img_url"].replace("{width}", "400")
+    
+    posicion_aleatoria = random.randint(0, total_prendas - 1)
+    
+    try:
+        respuesta = query_datos.range(posicion_aleatoria, posicion_aleatoria).execute()
+        prenda_seleccionada = respuesta.data[0]
+        url_bruta = prenda_seleccionada["img_url"]
+        marca = prenda_seleccionada["marca"]
+    except Exception:
+        return {
+            "id": "ERROR",
+            "url": "https://placehold.co/300x400?text=ERROR+BBDD",
+            "categoria": categoria_elegida,
+            "slot": slot_buscado
+        }
+    
+    if marca == 'zara' and "{width}" in url_bruta:
+        url_limpia = url_bruta.replace("{width}", "400")
+    elif url_bruta.startswith("http"):
+        url_limpia = url_bruta
+    else:
+        mapa_buckets = {
+            'bershka': 'nombre_bucket_bershka',
+            'mango': 'nombre_bucket_mango',
+            'hym': 'nombre_bucket_hym'
+        }
+        nombre_bucket = mapa_buckets.get(marca, marca)
+        url_limpia = supabase.storage.from_(nombre_bucket).get_public_url(url_bruta)
     
     return {
         "id": prenda_seleccionada["id"],
@@ -128,8 +194,8 @@ if "outfit" not in st.session_state:
     st.session_state.outfit = None
 if "good_count" not in st.session_state:
     st.session_state.good_count = 0
-if "bad_count" not in st.session_state:
-    st.session_state.bad_count = 0
+if "form_reset" not in st.session_state:
+    st.session_state.form_reset = 0
 
 # --- PANTALLA DE LOGIN ---
 if st.session_state.username is None:
@@ -137,11 +203,9 @@ if st.session_state.username is None:
     st.write("Crea un usuario y ayúdame a generar el mejor dataset de moda.")
     
     try:
-        resp = supabase.table("datos_sinteticos").select("username").execute()
-        usuarios_unicos = set([r["username"].lower() for r in resp.data])
-        total_usuarios = len(usuarios_unicos)
+        resp_conteo = supabase.rpc("contar_usuarios_unicos").execute()
+        total_usuarios = resp_conteo.data
     except:
-        usuarios_unicos = set()
         total_usuarios = 0
 
     st.metric("👥 Amigos colaborando actualmente", total_usuarios)
@@ -153,22 +217,24 @@ if st.session_state.username is None:
     if st.button("¡Empezar a valorar!", type="primary"):
         if user_input.strip():
             usuario = user_input.strip()
-            usuario_lower = usuario.lower()
             
-            if not es_retorno and usuario_lower in usuarios_unicos:
-                st.error("Ese nombre ya está cogido por otro amigo. ¡Elige otro o añade tu apellido!")
-            elif es_retorno and usuario_lower not in usuarios_unicos:
-                st.error("No encuentro ese nombre en la base de datos. Si eres nuevo, desmarca la casilla de arriba.")
-            else:
-                st.session_state.username = usuario
+            try:
+                res_usuario = supabase.table("datos_sinteticos").select("id").ilike("username", usuario).limit(1).execute()
+                usuario_existe = len(res_usuario.data) > 0
                 
-                res_buenos = supabase.table("datos_sinteticos").select("id", count="exact").eq("username", usuario).eq("is_good", True).execute()
-                res_malos = supabase.table("datos_sinteticos").select("id", count="exact").eq("username", usuario).eq("is_good", False).execute()
-                
-                st.session_state.good_count = res_buenos.count if res_buenos.count is not None else len(res_buenos.data)
-                st.session_state.bad_count = res_malos.count if res_malos.count is not None else len(res_malos.data)
-                
-                st.rerun()
+                if not es_retorno and usuario_existe:
+                    st.error("Ese nombre ya está cogido por otro amigo. ¡Elige otro o añade tu apellido!")
+                elif es_retorno and not usuario_existe:
+                    st.error("No encuentro ese nombre en la base de datos. Si eres nuevo, desmarca la casilla de arriba.")
+                else:
+                    st.session_state.username = usuario
+                    
+                    res_buenos = supabase.table("datos_sinteticos").select("id", count="exact").eq("username", usuario).eq("is_good", True).execute()
+                    st.session_state.good_count = res_buenos.count if res_buenos.count is not None else len(res_buenos.data)
+                    
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Error conectando a la base de datos: {e}")
         else:
             st.warning("Por favor, introduce un nombre.")
 
@@ -181,14 +247,10 @@ else:
     st.sidebar.metric("🔥 Outfits Buenos", f"{st.session_state.good_count} / 50")
     st.sidebar.progress(progreso_buenos)
     
-    progreso_malos = min(st.session_state.bad_count / 50.0, 1.0)
-    st.sidebar.metric("🤮 Outfits Malos (Descartes)", f"{st.session_state.bad_count} / 50")
-    st.sidebar.progress(progreso_malos)
-    
-    if st.session_state.good_count >= 50 and st.session_state.bad_count >= 50:
+    if st.session_state.good_count >= 50:
         st.balloons()
         st.success("## ¡Misión cumplida! 🎉")
-        st.write("Has completado tus 100 valoraciones. Muchísimas gracias por ayudarme a generar los datos para mi TFM. ¡Ya puedes cerrar esta pestaña!")
+        st.write("Has completado tus 50 valoraciones. Muchísimas gracias por ayudarme a generar los datos para mi TFM. ¡Ya puedes cerrar esta pestaña!")
         st.stop()
 
     if st.session_state.outfit is None:
@@ -196,6 +258,7 @@ else:
 
     st.title(f"¡Hola, {st.session_state.username}!")
     st.write("Cambia (o quita) las prendas que no te convenzan y valora el conjunto final.")
+    
     st.divider()
     
     num_prendas = len(st.session_state.outfit)
@@ -206,35 +269,24 @@ else:
         with col:
             st.image(prenda["url"], use_container_width=True)
             st.caption(f"{prenda['categoria'].title()} ({prenda['slot']})")
+            st.caption(f"ID: {prenda['id']}")
             
-            # --- BOTÓN DE CAMBIAR (Mantiene la jugada del feedback implícito) ---
+            checkbox_key = f"defect_{prenda['id']}"
+            es_defectuosa = st.checkbox("⚠️ Imagen rota/defectuosa", key=checkbox_key)
+            
             if st.button(f"🔄 Cambiar", key=f"btn_swap_{idx}", use_container_width=True):
-                if st.session_state.bad_count < 50:
-                    ids_actuales = [p['id'] for p in st.session_state.outfit]
-                    supabase.table("datos_sinteticos").insert({
-                        "username": st.session_state.username,
-                        "prendas_ids": ids_actuales,
-                        "is_good": False,
-                        "temporalidad": None,
-                        "ocasion": None
-                    }).execute()
-                    st.session_state.bad_count += 1
-                
-                st.session_state.outfit[idx] = obtener_prenda_aleatoria(prenda['slot'])
-                st.rerun()
+                if es_defectuosa and prenda['id'] != "ERROR":
+                    try:
+                        supabase.table("defectuosos").insert({
+                            "prenda_id": prenda['id'],
+                            "username": st.session_state.username
+                        }).execute()
+                    except Exception:
+                        pass
 
-            # --- NUEVO: BOTÓN DE ELIMINAR PRENDA ---
-            # Simulamos el outfit sin esta prenda concreta
-            categorias_sin_esta_prenda = [p['categoria'] for i, p in enumerate(st.session_state.outfit) if i != idx]
-            # Validamos si el outfit sobrante es legal
-            es_valido_sin_prenda, _ = validar_reglas_outfit(categorias_sin_esta_prenda)
-            
-            if es_valido_sin_prenda:
-                # Solo mostramos el botón si quitarla no rompe el outfit
-                if st.button(f"❌ Quitar", key=f"btn_del_{idx}", use_container_width=True):
-                    # Quitar algo también cuenta como que el conjunto anterior no le gustaba
-                    if st.session_state.bad_count < 50:
-                        ids_actuales = [p['id'] for p in st.session_state.outfit]
+                ids_actuales = [p['id'] for p in st.session_state.outfit if p['id'] != "ERROR"]
+                if ids_actuales:
+                    try:
                         supabase.table("datos_sinteticos").insert({
                             "username": st.session_state.username,
                             "prendas_ids": ids_actuales,
@@ -242,27 +294,117 @@ else:
                             "temporalidad": None,
                             "ocasion": None
                         }).execute()
-                        st.session_state.bad_count += 1
-                        
-                    # Eliminamos la prenda de la lista y recargamos
+                    except Exception as e:
+                        pass # Silencioso, no bloquea la experiencia del usuario
+                
+                st.session_state.outfit[idx] = obtener_prenda_aleatoria(prenda['slot'])
+                st.rerun()
+
+            categorias_sin_esta_prenda = [p['categoria'] for i, p in enumerate(st.session_state.outfit) if i != idx]
+            es_valido_sin_prenda, _ = validar_reglas_outfit(categorias_sin_esta_prenda)
+            
+            if es_valido_sin_prenda:
+                if st.button(f"❌ Quitar", key=f"btn_del_{idx}", use_container_width=True):
+                    ids_actuales = [p['id'] for p in st.session_state.outfit if p['id'] != "ERROR"]
+                    if ids_actuales:
+                        try:
+                            supabase.table("datos_sinteticos").insert({
+                                "username": st.session_state.username,
+                                "prendas_ids": ids_actuales,
+                                "is_good": False,
+                                "temporalidad": None,
+                                "ocasion": None
+                            }).execute()
+                        except Exception as e:
+                            pass
+                    
                     st.session_state.outfit.pop(idx)
                     st.rerun()
                 
     st.divider()
     
+    st.write("### ➕ Añadir otra prenda al outfit")
+    
+    todas_las_categorias = [categoria for lista in SLOTS.values() for categoria in lista]
+    categorias_actuales = [p['categoria'] for p in st.session_state.outfit]
+    
+    categorias_permitidas = []
+    for cat in todas_las_categorias:
+        outfit_simulado = categorias_actuales + [cat]
+        es_valido, _ = validar_reglas_outfit(outfit_simulado)
+        if es_valido:
+            categorias_permitidas.append(cat.title())
+            
+    if categorias_permitidas:
+        col_cat, col_btn = st.columns([3, 1])
+        with col_cat:
+            cat_seleccionada = st.selectbox(
+                "Selecciona el tipo de prenda:", 
+                categorias_permitidas,
+                index=None,
+                placeholder="Elige una categoría (ej. Sudaderas)...",
+                key=f"sel_add_{st.session_state.form_reset}"
+            )
+        with col_btn:
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+            if st.button("Añadir prenda", use_container_width=True):
+                if cat_seleccionada:
+                    cat_lower = cat_seleccionada.lower()
+                    
+                    slot_encontrado = None
+                    for s, prendas_list in SLOTS.items():
+                        if cat_lower in prendas_list:
+                            slot_encontrado = s
+                            break
+                            
+                    if slot_encontrado:
+                        # 1. Guardamos el outfit ACTUAL (antes de añadir, como falso)
+                        ids_actuales = [p['id'] for p in st.session_state.outfit if p['id'] != "ERROR"]
+                        if ids_actuales:
+                            try:
+                                supabase.table("datos_sinteticos").insert({
+                                    "username": st.session_state.username,
+                                    "prendas_ids": ids_actuales,
+                                    "is_good": False,
+                                    "temporalidad": None,
+                                    "ocasion": None
+                                }).execute()
+                            except Exception:
+                                pass
+                        
+                        # 2. Añadimos la prenda nueva y recargamos
+                        nueva_prenda = obtener_prenda_aleatoria(slot_encontrado, categoria_fija=cat_lower)
+                        st.session_state.outfit.append(nueva_prenda)
+                        st.rerun()
+                else:
+                    st.warning("Selecciona una categoría primero.")
+    else:
+        st.info("💡 Según las reglas, este outfit ya no admite más prendas (ya tiene base completa y calzado).")
+
+    st.divider()
+    
     st.write("### 🏷️ ¿Para cuándo y para qué es este outfit?")
     col_temp, col_ocas = st.columns(2)
     
+    key_temporalidad = f"sel_temp_{st.session_state.form_reset}"
+    key_ocasion = f"sel_ocas_{st.session_state.form_reset}"
+    
     with col_temp:
-        temporalidad = st.selectbox(
+        st.selectbox(
             "Temporalidad", 
-            ["Invierno", "Verano", "Entretiempo"]
+            ["Invierno", "Verano", "Entretiempo"],
+            index=None,
+            placeholder="Selecciona temporalidad...",
+            key=key_temporalidad
         )
         
     with col_ocas:
-        ocasion = st.selectbox(
+        st.selectbox(
             "Ocasión", 
-            ["Casual", "Formal-Oficina", "Fiesta-Discoteca", "Fiesta-Elegante", "Deporte", "Otros"]
+            ["Casual", "Formal-Oficina", "Fiesta-Discoteca", "Fiesta-Elegante", "Deporte", "Otros"],
+            index=None,
+            placeholder="Selecciona ocasión...",
+            key=key_ocasion
         )
 
     st.divider()
@@ -270,18 +412,34 @@ else:
     ya_tiene_50_buenos = st.session_state.good_count >= 50
     
     if st.button("🔥 ¡Me encanta! (Guardar como BUENO)", use_container_width=True, type="primary", disabled=ya_tiene_50_buenos):
-        ids_finales = [p['id'] for p in st.session_state.outfit]
+        temp_elegida = st.session_state[key_temporalidad]
+        ocas_elegida = st.session_state[key_ocasion]
         
-        supabase.table("datos_sinteticos").insert({
-            "username": st.session_state.username,
-            "prendas_ids": ids_finales,
-            "is_good": True,
-            "temporalidad": temporalidad,
-            "ocasion": ocasion
-        }).execute()
-        
-        st.session_state.good_count += 1
-        st.success("¡Outfit guardado correctamente!")
-        time.sleep(1)
-        st.session_state.outfit = generar_nuevo_outfit()
-        st.rerun()
+        if temp_elegida is None or ocas_elegida is None:
+            st.error("⚠️ ¡Espera! Debes seleccionar la **Temporalidad** y la **Ocasión** antes de guardar el outfit.")
+        else:
+            ids_finales = [p['id'] for p in st.session_state.outfit if p['id'] != "ERROR"]
+            
+            try:
+                # Intentar hacer el guardado en base de datos
+                supabase.table("datos_sinteticos").insert({
+                    "username": st.session_state.username,
+                    "prendas_ids": ids_finales,
+                    "is_good": True,
+                    "temporalidad": temp_elegida,
+                    "ocasion": ocas_elegida
+                }).execute()
+                
+                # Si llegamos aquí, el guardado fue exitoso
+                st.session_state.good_count += 1
+                st.success("¡Outfit guardado correctamente!")
+                time.sleep(1)
+                
+                st.session_state.outfit = generar_nuevo_outfit()
+                st.session_state.form_reset += 1
+                
+                st.rerun()
+                
+            except Exception as e:
+                # Si hay cualquier error al guardar, mostramos aviso sin romper la app ni avanzar
+                st.error(f"❌ Ocurrió un error al guardar en la base de datos: {e}")

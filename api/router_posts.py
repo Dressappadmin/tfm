@@ -1,3 +1,4 @@
+'''
 import httpx
 from fastapi import APIRouter, HTTPException, Request
 from openai import OpenAI
@@ -106,3 +107,4 @@ async def ver_feed_usuario(usuario_id: str, limite: int = 10, pagina: int = 1):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error al cargar el feed.")
+'''

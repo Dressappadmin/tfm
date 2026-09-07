@@ -1,12 +1,13 @@
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Literal
 
 class MensajeChat(BaseModel):
-    role: str # 'user', 'assistant' o 'system'
+    # Restringimos estrictamente los roles permitidos desde el cliente
+    role: Literal["user", "assistant"] 
     content: str
 
 class ChatRequest(BaseModel):
     usuario_id: str
     mensajes: List[MensajeChat]
-    # Opcional: Si el usuario ya está viendo una prenda en la app y dice "combíname esto"
-    contexto_prenda_id: Optional[Dict[str, str]] = None
+    # Lo cambiamos a List[str] para que encaje con el cambio anterior
+    contexto_prenda_id: Optional[List[str]] = None

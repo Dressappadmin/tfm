@@ -1,11 +1,9 @@
-# api/router_prendas.py
 import asyncio
 from fastapi import APIRouter, HTTPException, Request
 import httpx 
-
-# Importamos las funciones de nuestra capa CRUD, NO Supabase
-from crud.prendas import obtener_prenda_por_id, actualizar_prenda_por_id
-from crud.storage import cargar_imagen_url_bucket
+from crud.prendas import actualizar_prenda_por_id
+from crud.storage import cargar_imagen_bucket
+from schemas.ProcesarPrendaRequest import ProcesarPrendaRequest
 from services.procesar_imagen import procesar_imagen
 from utils.helpers import detectar_slot 
 from core.api_client import URL_ARMARIO_USUARIOS
@@ -23,10 +21,9 @@ router = APIRouter(
     tags=["Gestión de Prendas"]
 )
 
-
-@router.put("/procesar-ia")
+@router.post("/procesar-ia")
 async def procesar_datos_prenda_ia(
-    prenda_ext: str,
+    payload: ProcesarPrendaRequest,
     request: Request
 ):
     """
@@ -34,6 +31,9 @@ async def procesar_datos_prenda_ia(
     fondo, color y embedding mediante IA, y actualiza sus columnas respectivas.
     """
     try:
+        # Extraemos el nombre/extensión de la prenda desde el body
+        prenda_ext = payload.prenda_ext
+
         # 1. Recuperar datos de la prenda usando nuestra nueva API de datos
         prenda_id = prenda_ext.split('.')[0]
 
@@ -43,7 +43,7 @@ async def procesar_datos_prenda_ia(
 
         # 2. Descargamos la imagen original desde la URL
         try:
-            img = await cargar_imagen_url_bucket(url_imagen)
+            img = await cargar_imagen_bucket(url_imagen)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"No se pudo descargar la imagen desde la URL: {e}")
 

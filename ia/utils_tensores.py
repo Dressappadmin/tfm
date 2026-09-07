@@ -1,26 +1,21 @@
 import torch
 import torch.nn.functional as F
-from config import SLOT_INDEX, VOCABULARIO_TAGS, NUM_TAGS
+from utils.catalogos import SLOT_INDEX, VOCABULARIO_TAGS, NUM_TAGS
 
 def tags_a_multihot(etiquetas_extraidas: list, num_tags: int = NUM_TAGS) -> torch.Tensor:
     """
     Convierte una lista de etiquetas en un vector multi-hot.
-    Ej: ['formal', 'verano'] -> [0, 1, 0, 0, 1, 0, ...] con shape (1, num_tags)
     """
-    # Inicializamos un tensor de ceros
     tensor_tags = torch.zeros(1, num_tags, dtype=torch.float32)
     
     if not etiquetas_extraidas:
         return tensor_tags
         
-    # Limpiamos las etiquetas (a minúsculas y sin espacios extra) por si el LLM varía el formato
-    etiquetas_limpias = [tag.strip().lower() for tag in etiquetas_extraidas]
-    
-    for tag in etiquetas_limpias:
-        if tag in VOCABULARIO_TAGS:
-            # Buscamos en qué índice está la etiqueta
-            idx = VOCABULARIO_TAGS.index(tag)
-            # Ponemos un 1 en esa posición
+    for tag in etiquetas_extraidas:
+        # Solo quitamos espacios por seguridad, pero respetamos mayúsculas
+        tag_limpio = tag.strip() 
+        if tag_limpio in VOCABULARIO_TAGS:
+            idx = VOCABULARIO_TAGS.index(tag_limpio)
             tensor_tags[0, idx] = 1.0
             
     return tensor_tags
@@ -52,30 +47,32 @@ def hex_a_tensor_color(hex_color: str) -> torch.Tensor:
 
 def preparar_outfit_parcial(prendas_dict, clip_dim=512):
     """
-    Convierte un diccionario de prendas en un embedding promedio y su máscara de presencia.
-    
-    Ejemplo input: 
-    prendas_dict = {
-        'SUPERIOR': tensor_camiseta, 
-        'INFERIOR': tensor_pantalon
-    }
+    Convierte un diccionario de prendas en un embedding promedio (1, 512) 
+    y su máscara de presencia (1, 6) para la red neuronal.
     """
-    # Si por algún motivo no pasan ninguna prenda (cold start del outfit)
+    # Si no hay prendas de entrada (cold start del outfit)
     if not prendas_dict:
-        return torch.zeros(1, clip_dim), torch.zeros(1, 6)
+        return torch.zeros(1, clip_dim, dtype=torch.float32), torch.zeros(1, 6, dtype=torch.float32)
         
     embeddings_list = []
-    presence_vector = torch.zeros(1, 6)
+    presence_vector = torch.zeros(1, 6, dtype=torch.float32)
     
-    for slot, tensor in prendas_dict.items():
-        embeddings_list.append(tensor)
-        # Marcamos con un 1 el slot correspondiente
-        idx = SLOT_INDEX[slot]
-        presence_vector[0, idx] = 1.0
+    for slot, emb in prendas_dict.items():
+        # 1. Asegurarnos de que es un tensor 1D (512,) para evitar dimensiones extrañas
+        tensor_emb = torch.tensor(emb, dtype=torch.float32).view(-1)
+        embeddings_list.append(tensor_emb)
         
-    # Apilamos y hacemos la media en la dimensión de los items
-    # shape de torch.stack: (num_prendas, clip_dim)
-    partial_outfit_emb = torch.stack(embeddings_list).mean(dim=0, keepdim=True)
+        # 2. Normalizar el nombre del slot para evitar KeyErrors
+        slot_upper = slot.strip().upper()
+        if slot_upper in SLOT_INDEX:
+            idx = SLOT_INDEX[slot_upper]
+            presence_vector[0, idx] = 1.0
+            
+    # 3. Matemáticas seguras:
+    # torch.stack -> (num_prendas, 512)
+    # .mean(dim=0) -> (512,)
+    # .unsqueeze(0) -> (1, 512) (Perfecto para hacer torch.cat en tu red)
+    partial_outfit_emb = torch.stack(embeddings_list).mean(dim=0).unsqueeze(0)
     
     return partial_outfit_emb, presence_vector
 

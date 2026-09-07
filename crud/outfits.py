@@ -22,5 +22,5 @@ async def obtener_outfit_por_id(outfit_id: str):
         raise e
 
 # FALTA ENDPOINT ALLAN
-async def actualizar_embedding_outfit(outfit_id: str, embedding: list):
+async def actualizar_outfit_por_id(outfit_id: str, embedding: list):
     return True

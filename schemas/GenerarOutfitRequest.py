@@ -1,14 +1,24 @@
-# schemas/GenerarOutfitRedRequest.py
-from pydantic import BaseModel, Field
-from typing import List, Dict, Optional
+from pydantic import BaseModel, Field, field_validator
+from typing import List
+from utils.catalogos import VOCABULARIO_TAGS
 
 class GenerarOutfitRequest(BaseModel):
-    # Diccionario donde la key es el SLOT ('SUPERIOR', 'INFERIOR', etc.) 
-    # y el value es el ID de la prenda en la base de datos
-    prendas_input: Dict[str, str] = Field(
-        ..., example={"SUPERIOR": "uuid-camiseta-123", "INFERIOR": "uuid-pantalon-456"}
+    usuario_id: str
+    
+    prendas_input: List[str] = Field(
+        default_factory=list, 
+        json_schema_extra={"example": ["uuid-camiseta-123", "uuid-pantalon-456"]}
     )
-    # IDs de las prendas con las que el usuario interactuó últimamente (likes/guardados)
-    historial_usuario_ids: List[str] = Field(default=[])
-    # El prompt libre del usuario
-    texto: Optional[str] = None
+    
+    tags: List[str] = Field(
+        default_factory=list, 
+        json_schema_extra={"example": ["Casual", "Invierno"]}
+    )
+
+    # FastAPI bloqueará cualquier etiqueta inventada
+    @field_validator('tags')
+    def validar_tags(cls, lista_tags):
+        for tag in lista_tags:
+            if tag not in VOCABULARIO_TAGS:
+                raise ValueError(f"Etiqueta no válida: '{tag}'. Solo se permiten: {VOCABULARIO_TAGS}")
+        return lista_tags

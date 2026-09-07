@@ -21,7 +21,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("⚠️ Faltan las credenciales de Supabase en las variables de entorno.")
 
-supabase_client: AsyncClient = create_async_client(SUPABASE_URL, SUPABASE_KEY)
+supabase_client = AsyncClient(SUPABASE_URL, SUPABASE_KEY)
 
 # Tablas y buckets
 OUTFITS_TABLA = 'outfit'

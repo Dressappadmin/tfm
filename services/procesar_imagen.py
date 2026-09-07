@@ -5,7 +5,7 @@ from sklearn.cluster import KMeans
 from transformers import CLIPProcessor, CLIPModel
 from transparent_background import Remover
 import numpy as np
-from core.config import CATEGORIAS
+from utils.catalogos import CATEGORIAS
 from ia.device import DEVICE
 
 

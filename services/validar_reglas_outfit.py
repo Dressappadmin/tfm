@@ -1,4 +1,4 @@
-from core.config import SLOTS
+from utils.catalogos import SLOTS
 
 def validar_reglas_outfit(tipos_prendas: list[str]) -> tuple[bool, str]:
     '''

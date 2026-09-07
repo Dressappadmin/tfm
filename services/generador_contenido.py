@@ -1,3 +1,4 @@
+'''
 from schemas.OutfitMetadataAI import OutfitMetadataAI
 from openai import OpenAI 
 
@@ -5,7 +6,7 @@ import os
 
 from dotenv import load_dotenv
 
-from config import PRENDAS_TABLA, EMBEDDING_PRENDA, IMG_URL_PRENDA, TIPO_PRENDA
+from utils.catalogos import PRENDAS_TABLA, EMBEDDING_PRENDA, IMG_URL_PRENDA, TIPO_PRENDA
 from data.cargar_tabla_memoria import cargar_tabla_memoria, supabase
 
 from utils.registrar_outfit_bd import registrar_outfit_bd
@@ -118,3 +119,4 @@ def generar_post():
     print(post)
 
     registrar_post_bd(supabase, outfit_id)
+'''

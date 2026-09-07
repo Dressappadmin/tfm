@@ -182,6 +182,11 @@ A continuación:
    gcloud config set project dressapp-503311
    gcloud auth print-access-token | sudo docker login -u oauth2accesstoken --password-stdin https://europe-southwest1-docker.pkg.dev
 
+En el otro docker:
+   gcloud auth login
+   gcloud config set project tfm-outfit-rater
+   gcloud auth print-access-token | sudo docker login -u oauth2accesstoken --password-stdin https://europe-southwest1-docker.pkg.dev
+
 ### Paso 3: Construir, subir y desplegar la imagen
 Ejecuta los siguientes comandos en orden (cambiando el 7 por la versión que toque):
 
@@ -202,7 +207,7 @@ Ejecuta los siguientes comandos en orden (cambiando el 7 por la versión que toq
       gcloud run deploy outfitai-api \
          --image europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v7 \
          --region europe-southwest1 \
-         --set-env-vars SUPABASE_URL="tu_url_de_supabase",SUPABASE_KEY="tu_anon_key_de_supabase"
+         --set-env-vars SUPABASE_URL="tu_url_de_supabase",SUPABASE_KEY="tu_anon_key_de_supabase",LLM_API_KEY="key"
    En dev:
       gcloud run deploy outfitai-api \
          --image europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v7-dev \
@@ -229,24 +234,30 @@ Cuando se modifique el código, una vez guardado, si no es la primera vez que te
 
 En prod:
    gcloud auth print-access-token | sudo docker login -u oauth2accesstoken --password-stdin https://europe-southwest1-docker.pkg.dev
-   sudo docker build -t europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v7 .
-   sudo docker push europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v7
-   gcloud run deploy outfitai-api --image europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v7 --region europe-southwest1
+   sudo docker build -t europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1 .
+   sudo docker push europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1
+   gcloud run deploy outfitai-api --image europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1 --region europe-southwest1 --set-env-vars 
 
 En dev:
    gcloud auth print-access-token | sudo docker login -u oauth2accesstoken --password-stdin https://europe-southwest1-docker.pkg.dev
-   sudo docker build -t europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1-dev .
-   sudo docker push europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1-dev
-   gcloud run deploy outfitai-api-dev --image europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1-dev --region europe-southwest1
+   sudo docker build -t europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v7-dev .
+   sudo docker push europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v7-dev
+   gcloud run deploy outfitai-api-dev --image europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v7-dev --region europe-southwest1
 
 Nota: puede ser que de errores debido a poca capacidad de cómputo. 
 Como referencia, la última ejecución se hizo con los parámetros:
-   gcloud run deploy outfitai-api-dev \
-   --image europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1-dev \
+   gcloud run deploy outfitai-api \
+   --image europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1 \
    --region europe-southwest1 \
    --memory 8Gi \
    --cpu 2 \
    --timeout 300
+
+Para el otro docker:
+   gcloud auth print-access-token | sudo docker login -u oauth2accesstoken --password-stdin https://europe-southwest1-docker.pkg.dev
+   sudo docker build -t europe-southwest1-docker.pkg.dev/tfm-outfit-rater/outfitai-repo/outfit-app:v1 .
+   sudo docker push europe-southwest1-docker.pkg.dev/tfm-outfit-rater/outfitai-repo/outfit-app:v1
+   gcloud run deploy outfit-app --image europe-southwest1-docker.pkg.dev/tfm-outfit-rater/outfitai-repo/outfit-app:v1 --region europe-southwest1 --set-env-vars 
 
 ### Probar la api en local
 Abre una terminal de VSCode y escribe
