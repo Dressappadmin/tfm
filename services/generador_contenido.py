@@ -1,122 +1,69 @@
-'''
-from schemas.OutfitMetadataAI import OutfitMetadataAI
-from openai import OpenAI 
+from typing import List
+from openai import AsyncOpenAI
+from core.config import LLM_API_KEY
+from crud.prendas import obtener_prenda_aleatoria
+from ia.ejecutar_pipeline_outfit import ejecutar_pipeline_outfit
 
-import os
+client = AsyncOpenAI(api_key=LLM_API_KEY)
 
-from dotenv import load_dotenv
+async def generador_contenido(app_state, usuario_id: str, tags_estilo: List[str] = None):
+    '''
+    Genera un outfit completo partiendo de una prenda aleatoria como base y redacta una descripción atractiva optimizada para redes sociales utilizando un modelo de lenguaje.
 
-from utils.catalogos import PRENDAS_TABLA, EMBEDDING_PRENDA, IMG_URL_PRENDA, TIPO_PRENDA
-from data.cargar_tabla_memoria import cargar_tabla_memoria, supabase
+    Parameters
+    ----------
+    app_state : object
+        Objeto que almacena el estado global de la aplicación, necesario para ejecutar el pipeline de generación.
+    usuario_id : str
+        Identificador único del usuario para el cual se personaliza y genera el outfit.
+    tags_estilo : list, optional
+        Lista de etiquetas o tags de estilo para condicionar la generación de las prendas (por defecto es None, en cuyo caso se asigna ["casual"]).
 
-from utils.registrar_outfit_bd import registrar_outfit_bd
-from utils.cargar_imagen_url_bucket import cargar_imagen_url_bucket
-from utils.registrar_post_bd import registrar_post_bd
+    Returns
+    ----------
+    tuple
+        Una tupla que contiene el outfit completo generado (como lista o estructura de datos) y la cadena de texto con la descripción atractiva para redes sociales.
+    '''
+    if tags_estilo is None:
+        tags_estilo = ["casual"]
 
-from schemas.OutfitMetadataAI import OutfitMetadataAI
-
-from generador_contenido.generar_metadatos_hibridos import generar_metadatos_hibridos
-from generador_contenido.obtener_url_prenda_aleatoria import obtener_url_prenda_aleatoria
-
-from modulos.cargar_modelos import cargar_modelos
-from modulos.procesar_imagen import procesar_imagen
-from modulos.completar_outfit import completar_outfit
-
-import random
-from typing import Any
-from config import IMG_URL_PRENDA
-
-def obtener_url_prenda_aleatoria(catalog: list[dict[str, Any]]) -> str | None:
-    """
-    Selecciona una prenda aleatoria del catálogo y devuelve únicamente su URL de imagen.
+    prenda = await obtener_prenda_aleatoria()
     
-    Args:
-        catalog: Lista de diccionarios de prendas devuelta por Supabase.
-        
-    Returns:
-        Un string con la URL de la imagen o None si el catálogo está vacío.
-    """
-    if not catalog:
-        return None
-        
-    prenda_elegida = random.choice(catalog)
-    
-    # Extraemos solo la URL (compatible con 'url_imagen' o 'img_url' según tu tabla)
-    return prenda_elegida.get(IMG_URL_PRENDA)
+    prenda_id = prenda.get("id") if isinstance(prenda, dict) else getattr(prenda, "id", str(prenda))
 
-def generar_metadatos_hibridos(
-    nombres_prendas: list[str],
-    colores_hex: list[str],
-    ejemplos_top_likes: list[str],
-    api_key: str
-) -> dict:
-    """
-    Usa un LLM rápido para generar etiquetas de alta precisión y un copy 
-    optimizado basándose en los textos que mejor funcionan en la app.
-    """
-    client = OpenAI(api_key=api_key)
-    
-    prompt_usuario = (
-        f"Prendas del outfit: {', '.join(nombres_prendas)}.\n"
-        f"Paleta de color principal: {', '.join(colores_hex)}.\n\n"
-        f"Ejemplos de descripciones con alto engagement en nuestra app:\n"
-        + "\n".join([f"- '{ej}'" for ej in ejemplos_top_likes]) +
-        "\n\nGenera los metadatos para este nuevo conjunto:"
+    outfit = await ejecutar_pipeline_outfit(
+        app_state=app_state,
+        usuario_id=usuario_id,
+        prendas_input=[prenda_id],
+        tags_llm=tags_estilo,
+        temperatura=0.7
     )
+
+    if isinstance(outfit, list):
+        nombres_prendas = [item.get("tipo_prenda", "prenda") for item in outfit]
+    else:
+        nombres_prendas = ["varias prendas seleccionadas"]
     
-    respuesta = client.beta.chat.completions.parse(
-        model="gpt-5.4-mini",
+    prompt = (
+        f"Crea un copy o descripción muy atractiva para redes sociales (Instagram/TikTok) "
+        f"para un outfit que incluye las siguientes prendas: {', '.join(nombres_prendas)}.\n"
+        f"Usa un tono fresco, natural y añade un par de emojis relevantes."
+    )
+
+    respuesta = await client.chat.completions.create(
+        model="gpt-4o-mini",
         messages=[
             {
-                "role": "system",
-                "content": "Eres el editor jefe de moda de una app de estilo. Tu objetivo es asignar etiquetas exactas y escribir copys muy atractivos y naturales para maximizar los likes."
+                "role": "system", 
+                "content": "Eres el editor jefe de moda de una app de estilo. Escribes textos que maximizan los likes."
             },
-            {"role": "user", "content": prompt_usuario}
-        ],
-        response_format=OutfitMetadataAI
+            {
+                "role": "user", 
+                "content": prompt
+            }
+        ]
     )
     
-    # Devuelve un diccionario validado listo para la tabla 'outfits' de Supabase
-    return respuesta.choices[0].message.parsed.model_dump()
+    descripcion = respuesta.choices[0].message.content.strip()
 
-def generar_post():
-
-    load_dotenv()
-
-    api_key = os.getenv("OPENAI_API")
-
-    catalog, _ = cargar_tabla_memoria(PRENDAS_TABLA, embedding=EMBEDDING_PRENDA)
-
-    prenda = cargar_imagen_url_bucket(obtener_url_prenda_aleatoria(catalog))
-
-    processor, model, remover = cargar_modelos()
-
-    embedding, tipo_prenda, color = procesar_imagen(prenda, processor, model, remover)
-
-    print(color)
-
-    outfit = completar_outfit(tipo_prenda, 5, 0.15, color, embedding, catalog)
-
-    print(outfit)
-
-    outfit_id = registrar_outfit_bd(outfit)
-
-    nombres_prendas = []
-    colores_hex = []
-    for el in outfit:
-        prenda = cargar_imagen_url_bucket(el[IMG_URL_PRENDA])
-        _, _, color = procesar_imagen(prenda, processor, model, remover)
-        nombres_prendas.append(TIPO_PRENDA)
-        colores_hex.append(color['hex'])
-        
-    post = generar_metadatos_hibridos(
-        nombres_prendas,
-        colores_hex,
-        [],
-        api_key
-    )
-
-    print(post)
-
-    registrar_post_bd(supabase, outfit_id)
-'''
+    return outfit, descripcion

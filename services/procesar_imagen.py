@@ -4,13 +4,11 @@ from PIL import Image
 from sklearn.cluster import KMeans
 from transformers import CLIPProcessor, CLIPModel
 from transparent_background import Remover
-import numpy as np
 from utils.catalogos import CATEGORIAS
 from ia.device import DEVICE
 
 
 def calcular_embedding_imagen(img: Image.Image, processor: CLIPProcessor, model: CLIPModel,) -> np.ndarray:
-
     '''
     Dada una imagen devuelve el vector de embedding de la misma para el modelo cargado FashionClip
     
@@ -25,12 +23,19 @@ def calcular_embedding_imagen(img: Image.Image, processor: CLIPProcessor, model:
     El array de numpy correspondiente al embedding de la imagen.
     '''
 
-    inputs = processor(images=img, return_tensors="pt")
+    inputs = processor(images=img, return_tensors="pt").to(DEVICE)
     
     with torch.no_grad():
         image_features = model.get_image_features(**inputs)
+        
+    if not isinstance(image_features, torch.Tensor):
+        if hasattr(image_features, 'pooler_output'):
+            image_features = image_features.pooler_output
+        elif hasattr(image_features, 'image_embeds'):
+            image_features = image_features.image_embeds
+        else:
+            image_features = image_features[0]
     
-    # Normalización L2 para que el producto escalar equivalga a Similitud Coseno
     image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
     
     return image_features.squeeze().cpu().numpy().astype(np.float32)
@@ -49,25 +54,17 @@ def quitar_fondo(img: Image.Image, remover: Remover) -> Image.Image:
     remover : Remover
         Instancia del modelo de eliminación de fondo inicializado en memoria.
     
-    Precondition
-    ------------
-    El modelo Remover debe estar cargado correctamente en el dispositivo (CPU/GPU).
-    
     Returns
     -------
     Image.Image
         La nueva imagen en formato RGB con el fondo original reemplazado por blanco.
     '''
-    # Nos aseguramos de trabajar en modo RGB estándar
     img = img.convert('RGB')
 
-    # Genera la imagen RGBA (con canal alfa/transparencia en el fondo)
     out = remover.process(img, type='rgba')
 
-    # Creamos un lienzo en blanco del mismo tamaño
     bg = Image.new('RGBA', out.size, (255, 255, 255, 255))
 
-    # Pegamos la prenda sobre el lienzo blanco usando el canal alfa como máscara
     bg.paste(out, mask=out.split()[3])
     
     return bg.convert('RGB')
@@ -94,11 +91,6 @@ def detectar_color_prenda(
         Tolerancia (distancia euclidiana) para considerar que un píxel es parte 
         del fondo y debe ser ignorado, por defecto 18.
     
-    Precondition
-    ------------
-    La imagen debe haber pasado por la función `quitar_fondo` para tener un 
-    fondo uniforme y predecible.
-    
     Returns
     -------
     dict[str, str | tuple[int, int, int]]
@@ -109,13 +101,11 @@ def detectar_color_prenda(
     arr = np.array(img_clean.convert('RGB'))
     pixels = arr.reshape(-1, 3)
     
-    # Calcular distancia de cada píxel al color de fondo
     dist_to_bg = np.sqrt(((pixels.astype(int) - np.array(bg_color)) ** 2).sum(axis=1))
     
-    # Filtrar píxeles que pertenecen a la prenda
     fg_pixels = pixels[dist_to_bg > tol]
     if len(fg_pixels) < 10:
-        fg_pixels = pixels  # Fallback en caso de que la imagen sea casi toda blanca
+        fg_pixels = pixels
         
     k = min(3, len(fg_pixels))
     km = KMeans(n_clusters=k, n_init=4, random_state=0).fit(fg_pixels)
@@ -191,10 +181,6 @@ def procesar_imagen(
     remover : Remover
         Modelo de segmentación para eliminar el fondo.
     
-    Precondition
-    ------------
-    Todos los modelos (CLIP y Remover) deben estar cargados correctamente en memoria.
-    
     Returns
     -------
     tuple[np.ndarray, str, dict]
@@ -203,16 +189,13 @@ def procesar_imagen(
         - tipo_prenda: El nombre de la categoría de prenda detectada con mayor probabilidad (str).
         - color: Diccionario con los valores hex y rgb del color dominante (dict).
     '''
-    # 1. Limpieza de imagen
+
     image_clean = quitar_fondo(img, remover)
     
-    # 2. Extracción de Embedding
     embedding = calcular_embedding_imagen(image_clean, processor, model)
 
-    # 3. Categorización (nos quedamos solo con la mejor predicción: posición 0, clave 0)
     tipo_prenda = reconocer_prenda(image_clean, processor, model)[0][0]
 
-    # 4. Extracción de color dominante
     color = detectar_color_prenda(image_clean)
 
     return embedding, tipo_prenda, color

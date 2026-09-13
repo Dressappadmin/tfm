@@ -2,6 +2,7 @@
 .env
 *.env
 .env.local
+.core/api_client.py
 
 # Entornos virtuales y caché de Python
 __pycache__/

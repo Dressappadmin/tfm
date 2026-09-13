@@ -1,18 +1,26 @@
-# core/config.py
 import os
+import httpx
 from dotenv import load_dotenv
-from supabase import create_async_client, AsyncClient
+from supabase import AsyncClient
 
 # Cargar variables de entorno
 load_dotenv()
 
 # ==========================================
-# LLM & APIS
+# LLM
 # ==========================================
 LLM_API_KEY = os.getenv("LLM_API_KEY")
 
 # ==========================================
-# CREDENCIALES Y BD (SUPABASE O API EXTERNA)
+# APIS DE RENDER
+# ==========================================
+URL_RENDER = os.getenv("URL_RENDER")
+URL_BUCKET_PRENDAS = os.getenv("URL_BUCKET_PRENDAS")
+
+render_client = httpx.AsyncClient(base_url=URL_RENDER)
+
+# ==========================================
+# BASE DE DATOS
 # ==========================================
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -59,7 +67,6 @@ ID_USUARIO              = ''
 # NOMBRES DE COLUMNAS POSTS
 # ==========================================
 ID_POST              = 'id' 
-
 
 # ==========================================
 # CONSTANTES GLOBALES DEL SISTEMA

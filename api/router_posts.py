@@ -1,101 +1,103 @@
-'''
-import httpx
 from fastapi import APIRouter, HTTPException, Request
+import traceback
 from openai import OpenAI
-
 from core.config import LLM_API_KEY, ID_PRENDA, SLOT_PRENDA
-from core.api_client import cliente_api
-
-# Importamos la lógica de IA y CRUD
 from ia.ejecutar_pipeline_outfit import ejecutar_pipeline_outfit
-from crud.outfits import registrar_outfit_bd
-from crud.posts import registrar_post_bd, obtener_posts_recomendados
+from crud.posts import obtener_posts_recomendados
 from crud.prendas import obtener_prenda_aleatoria
-from services.generador_contenido import generar_metadatos_hibridos
 
 router = APIRouter(
     prefix="/posts",
-    tags=["Feed Automático"]
+    tags=["Posts"]
 )
-
 openai_client = OpenAI(api_key=LLM_API_KEY)
 
-@router.post("/generar-automatico")
+# ---------------------------------------------------------
+# ENDPOINT 1: GENERAR UN POST
+# ---------------------------------------------------------
+@router.post("/generar-post")
 async def generar_post_automatico(request: Request):
-    """
-    Flujo 100% autónomo:
-    1. Coge una prenda aleatoria del catálogo.
-    2. La usa como 'ancla' para que la IA genere el resto del outfit.
-    3. Guarda el outfit en base de datos.
-    4. Genera el pie de foto con LLM.
-    5. Guarda el post final en el feed.
-    """
+    '''
+    Genera de forma autónoma una propuesta de outfit completa utilizando una prenda aleatoria del catálogo como ancla, crea una descripción atractiva para redes sociales mediante un modelo de lenguaje y devuelve ambos elementos sin guardarlos en la base de datos.
+
+    Parameters
+    ----------
+    request : Request
+        Objeto de solicitud de FastAPI que proporciona acceso al estado global de la aplicación.
+
+    Returns
+    ----------
+    dict
+        Estructura que contiene el outfit completo generado y la descripción optimizada para redes sociales.
+    '''
     try:
-        # 1. Obtener prenda semilla
         prenda_base = await obtener_prenda_aleatoria()
         prenda_id = prenda_base[ID_PRENDA]
         slot_prenda = prenda_base[SLOT_PRENDA]
         
         prendas_input = {slot_prenda: prenda_id}
 
-        # 2. Generar el Outfit completo con tu modelo PyTorch
-        prendas_db, outfit_generado = await ejecutar_pipeline_outfit(
+        outfit_completo = await ejecutar_pipeline_outfit(
             app_state=request.app.state,
             prendas_input_dict=prendas_input,
-            historial_ids=[], # No hay usuario, es un bot
-            texto=None,       # No hay petición de texto
+            historial_ids=[],
+            texto=None,       
             openai_client=openai_client
         )
-        
-        # 3. Recopilar todos los IDs (la prenda base + las prendas generadas)
-        ids_totales = [prenda_id] + [p[ID_PRENDA] for p in outfit_generado]
-        
-        # 4. Registrar el Outfit en la BD
-        outfit_id = await registrar_outfit_bd(
-            ids_prendas=ids_totales, 
-            nombre="Look Automático IA",
-            user_id="bot_outfit_ai" # Identificador para saber que lo creó el sistema
-        )
-        
-        if not outfit_id:
-            raise HTTPException(status_code=500, detail="Fallo al registrar el outfit.")
 
-        # 5. Generar pie de foto con el LLM
-        # (Pasas el cliente y la info que tu LLM necesite para inspirarse)
-        metadatos = await generar_metadatos_hibridos(
-            outfit_id=outfit_id,
-            openai_client=openai_client
+        nombres_prendas = [p.get("tipo_prenda", "prenda") for p in outfit_completo]
+        
+        prompt = (
+            f"Crea un copy o descripción muy atractiva para redes sociales (Instagram/TikTok) "
+            f"para un outfit que incluye las siguientes prendas: {', '.join(nombres_prendas)}.\n"
+            f"Usa un tono fresco, natural y añade un par de emojis relevantes."
         )
-        pie_de_foto = metadatos.get("pie_de_foto", "¡Inspiración del día creada por OutfitAI!")
 
-        # 6. Registrar el Post en la BD
-        post_id = await registrar_post_bd(
-            outfit_id=outfit_id,
-            usuario_id="bot_outfit_ai",
-            imagen_cuerpo_entero=None, # Como es automático, no hay foto real puesta
-            pie_de_foto=pie_de_foto
+        respuesta = await openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "Eres el editor jefe de moda de una app de estilo. Escribes textos que maximizan los likes."
+                },
+                {"role": "user", "content": prompt}
+            ]
         )
+        
+        descripcion = respuesta.choices[0].message.content.strip()
 
         return {
-            "status": "success",
-            "mensaje": "Post automático publicado en el feed.",
-            "post_id": post_id,
-            "outfit_id": outfit_id,
-            "pie_de_foto": pie_de_foto,
-            "prendas_incluidas": ids_totales
+            "outfit": outfit_completo,
+            "descripcion": descripcion
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
         raise HTTPException(status_code=500, detail=traceback.format_exc())
 
-@router.get("/feed/{usuario_id}")
+# ---------------------------------------------------------
+# ENDPOINT 2: CALCULAR POSTS PARA MOSTRAR EN EL FEED
+# ---------------------------------------------------------
+@router.post("/generar-feed")
 async def ver_feed_usuario(usuario_id: str, limite: int = 10, pagina: int = 1):
-    """
-    Devuelve los posts recomendados para el feed principal de un usuario.
-    """
+    '''
+    Obtiene y devuelve los posts recomendados para estructurar el feed principal de un usuario específico, con soporte para paginación y límite de resultados.
+
+    Parameters
+    ----------
+    usuario_id : str
+        Identificador único del usuario para el cual se generan las recomendaciones del feed.
+    limite : int, optional
+        Número máximo de posts a devolver por página (por defecto es 10).
+    pagina : int, optional
+        Número de página actual para la paginación de resultados (por defecto es 1).
+
+    Returns
+    ----------
+    dict
+        Estructura JSON con el estado de la operación, la página actual, la cantidad de resultados obtenidos y la lista de posts del feed.
+    '''
     try:
         posts = await obtener_posts_recomendados(usuario_id, limite, pagina)
         
@@ -107,4 +109,3 @@ async def ver_feed_usuario(usuario_id: str, limite: int = 10, pagina: int = 1):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error al cargar el feed.")
-'''

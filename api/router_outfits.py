@@ -1,20 +1,13 @@
 import numpy as np
 import httpx
-from fastapi import APIRouter, HTTPException, Body, Request
-from openai import OpenAI
-
-# Configuración y utilidades
-from core.config import LLM_API_KEY, SLOT_PRENDA, EMBEDDING_PRENDA, IDS_PRENDAS_OUTFIT, COLOR_PRENDA
+from fastapi import APIRouter, HTTPException, Request
+from core.config import SLOT_PRENDA, EMBEDDING_PRENDA, IDS_PRENDAS_OUTFIT, COLOR_PRENDA
 from schemas.ValidarOutfitRequest import ValidarOutfitRequest
 from schemas.OutfitEmbeddingRequest import OutfitEmbeddingRequest
 from schemas.GenerarOutfitRequest import GenerarOutfitRequest
-
-# Lógica de Negocio (Servicios)
 from services.validar_reglas_outfit import validar_reglas_outfit
 from ia.ejecutar_pipeline_outfit import ejecutar_pipeline_outfit 
-
-# Lógica de Datos (CRUD a través de la API externa)
-from crud.prendas import obtener_varias_prendas_por_id, obtener_prenda_por_id
+from crud.prendas import obtener_varias_prendas_por_id
 from crud.outfits import obtener_outfit_por_id, actualizar_outfit_por_id
 
 router = APIRouter(
@@ -22,16 +15,24 @@ router = APIRouter(
     tags=["Gestión de Outfits"]
 )
 
-openai_client = OpenAI(api_key=LLM_API_KEY)
-
 # ---------------------------------------------------------
 # ENDPOINT 1: VALIDAR COMBINACIÓN DE PRENDAS
 # ---------------------------------------------------------
 @router.post("/validar")
 async def validar_outfit(request: ValidarOutfitRequest):
-    """
-    Comprueba si una lista de IDs de prendas forman un conjunto válido.
-    """
+    '''
+    Valida si un conjunto de identificadores de prendas de vestir cumple con las reglas básicas de combinación para formar un outfit correcto.
+
+    Parameters
+    ----------
+    request : ValidarOutfitRequest
+        Objeto de la petición que contiene la lista de identificadores de las prendas a validar.
+
+    Returns
+    ----------
+    dict
+        Diccionario con el estado de la validación ('success' o 'invalid'), un mensaje descriptivo y las categorías o slots correspondientes a las prendas evaluadas.
+    '''
     try:
         prendas_ids = request.prendas_ids
 
@@ -69,7 +70,7 @@ async def validar_outfit(request: ValidarOutfitRequest):
         raise HTTPException(status_code=500, detail=traceback.format_exc())
 
 # ---------------------------------------------------------
-# ENDPOINT 2: CALCULAR CAMPOS DEL OUTFIT (MEAN POOLING)
+# ENDPOINT 2: CALCULAR CAMPOS DEL OUTFIT
 # ---------------------------------------------------------
 @router.post("/calcular-embedding")
 async def calcular_embedding_outfit(request: OutfitEmbeddingRequest):
@@ -78,10 +79,8 @@ async def calcular_embedding_outfit(request: OutfitEmbeddingRequest):
     la media normalizada de los embeddings de sus prendas y lo guarda.
     """
     try:
-        # Extraemos el ID del body de la petición
         outfit_id = request.outfit_id
 
-        # 1. Recuperar los IDs de las prendas del outfit vía API
         try:
             outfit_data = await obtener_outfit_por_id(outfit_id)
         except httpx.HTTPError:
@@ -91,14 +90,12 @@ async def calcular_embedding_outfit(request: OutfitEmbeddingRequest):
         if not prendas_ids:
             raise HTTPException(status_code=400, detail="El outfit no tiene prendas asignadas.")
 
-        # 2. Recuperar los embeddings de esas prendas vía API
         prendas_db = await obtener_varias_prendas_por_id(prendas_ids)
         embeddings_list = [p[EMBEDDING_PRENDA] for p in prendas_db if p.get(EMBEDDING_PRENDA)]
         
         if not embeddings_list:
             raise HTTPException(status_code=400, detail="Las prendas de este outfit no tienen embeddings.")
 
-        # 3. Matemáticas: Calcular el embedding del outfit
         matriz_embeddings = np.array(embeddings_list) 
         outfit_embedding_raw = np.mean(matriz_embeddings, axis=0)
         
@@ -107,7 +104,6 @@ async def calcular_embedding_outfit(request: OutfitEmbeddingRequest):
 
         outfit_embedding_final = outfit_embedding_normalized.tolist()
 
-        # 4. Actualizar la tabla OUTFITS vía API (PATCH)
         try:
             await actualizar_outfit_por_id(outfit_id, outfit_embedding_final)
         except httpx.HTTPError:
@@ -134,46 +130,32 @@ async def generar_outfit_avanzado(
     request: Request,
     datos: GenerarOutfitRequest
 ):
-    """
-    Endpoint principal de generación directa. Usa la red PyTorch y búsqueda pgvector.
-    Ideal para peticiones desde botones y filtros de la interfaz (sin texto libre).
-    """
-    try:
-        prendas_input_dict = {}
-        color_extraido = None
-        
-        # Si el usuario envió IDs de prendas, buscamos sus detalles usando tu función
-        if datos.prendas_input:
-            for prenda_id in datos.prendas_input:
-                prenda_db = await obtener_prenda_por_id(prenda_id)
-                
-                if not prenda_db:
-                    raise HTTPException(status_code=404, detail=f"No se encontró la prenda con ID: {prenda_id}")
-                
-                # Extraemos el slot y el color (asumiendo que las columnas se llaman así)
-                slot = prenda_db.get(SLOT_PRENDA)
-                color = prenda_db.get(COLOR_PRENDA)
-                
-                if slot:
-                    prendas_input_dict[slot] = prenda_id
-                
-                # Nos quedamos con el color de la primera prenda que tenga uno definido
-                if color and color_extraido is None:
-                    color_extraido = color
+    '''
+    Calcula el vector de embedding característico para un outfit a partir de la media normalizada de los vectores individuales de sus prendas constituyentes y almacena el resultado en la base de datos.
 
-        # Llamamos al pipeline unificado pasándole los parámetros reconstruidos
+    Parameters
+    ----------
+    request : OutfitEmbeddingRequest
+        Objeto de la petición que incluye el identificador único del outfit a procesar.
+
+    Returns
+    ----------
+    dict
+        Diccionario que indica el éxito de la operación, un mensaje informativo con estadísticas del cálculo, el ID del outfit y la dimensión del embedding resultante.
+    '''
+    try:
         outfit_generado = await ejecutar_pipeline_outfit(
             app_state=request.app.state,
             usuario_id=datos.usuario_id,
-            prendas_input=prendas_input_dict, # Pasamos el diccionario {slot: id}
+            prendas_input=datos.prendas_input, 
             tags_llm=datos.tags,
-            color_hex=color_extraido          # Pasamos el color recuperado
+            temperatura=datos.temperatura       
         )
 
         return {
             "status": "success",
             "outfit_generado": outfit_generado,
-            "mensaje": "Outfit generado inteligentemente mediante Deep Learning."
+            "mensaje": "Outfit generado"
         }
 
     except HTTPException:

@@ -6,8 +6,6 @@ from openai import OpenAI
 from core.config import LLM_API_KEY
 from utils.catalogos import VOCABULARIO_TAGS
 from schemas.ChatRequest import ChatRequest
-
-# Importamos la lógica interna y la función de BD
 from ia.ejecutar_pipeline_outfit import ejecutar_pipeline_outfit 
 from crud.prendas import obtener_prenda_por_id
 
@@ -34,6 +32,10 @@ HERRAMIENTAS_CHAT = [
                     "color_solicitado": {
                         "type": "string",
                         "description": "Color principal deseado en formato HEX (ej: '#FF0000'). Null si no especifica."
+                    },
+                    "temperatura": {
+                        "type": "number",
+                        "description": "Controla el nivel de riesgo o creatividad. Usa 0.1 o 0.2 si el usuario pide algo 'básico', 'clásico', 'seguro' o 'discreto'. Usa 0.5 para algo normal. Usa entre 0.8 y 1.0 si pide algo 'atrevido', 'loco', 'diferente', 'creativo' o 'arriesgado'."
                     }
                 },
                 "required": ["etiquetas_extraidas"]
@@ -47,20 +49,34 @@ async def conversacion_ia(
     request: Request,
     datos: ChatRequest = Body(...)
 ):
+    '''
+    Procesa un mensaje de chat del usuario con el asistente de estilo de DressApp, gestionando el historial de mensajes, la interacción con el modelo LLM de OpenAI y la ejecución de herramientas para la recomendación o generación de outfits.
+
+    Parameters
+    ----------
+    request : Request
+        Objeto de solicitud de FastAPI que proporciona acceso al estado global de la aplicación.
+    datos : ChatRequest
+        Cuerpo de la petición que incluye el historial de mensajes, el identificador del usuario y contexto adicional sobre prendas seleccionadas.
+
+    Returns
+    ----------
+    dict
+        Estructura de respuesta en formato JSON que contiene el tipo de respuesta (texto plano u outfit generado), el mensaje redactado y los datos correspondientes.
+    '''
     try:
         MAX_MENSAJES = 6 
         mensajes_recientes = datos.mensajes[-MAX_MENSAJES:] 
         
-        # Como Pydantic ya fuerza a que sea "user" o "assistant", el check de != "system" es un extra de seguridad
         mensajes_formateados = [
             {"role": m.role, "content": m.content} 
             for m in mensajes_recientes 
             if m.role != "system"
         ]
-        
+    
         system_prompt = {
             "role": "system",
-            "content": f"Eres el asistente personal de estilo de DressApp. Eres amable y experto en moda. Si el usuario pide un look, usa la función generar_outfit_pytorch. Las categorías válidas son: {', '.join(VOCABULARIO_TAGS)}. Adapta el lenguaje del usuario a estas categorías."
+            "content": f"Eres el asistente personal de estilo de DressApp. Eres amable y experto en moda. Si el usuario pide un look, usa la función generar_outfit_pytorch. Las categorías válidas son: {', '.join(VOCABULARIO_TAGS)}. Adapta el lenguaje del usuario a estas categorías. Presta mucha atención a si el usuario busca algo seguro y clásico o algo atrevido y diferente, y ajusta el parámetro de temperatura en consecuencia."
         }
 
         mensajes_formateados.insert(0, system_prompt)
@@ -83,7 +99,8 @@ async def conversacion_ia(
                 tags = argumentos.get("etiquetas_extraidas", [])
                 color_llm = argumentos.get("color_solicitado", None)
                 
-                # --- NUEVA LÓGICA DE PRENDAS (Igual que en el Endpoint 3) ---
+                temperatura_llm = float(argumentos.get("temperatura", 0.5))
+                
                 prendas_input_dict = {}
                 color_prenda = None
                 
@@ -101,8 +118,6 @@ async def conversacion_ia(
                             if color and color_prenda is None:
                                 color_prenda = color
 
-                # Priorizamos el color que el usuario haya pedido en el chat. 
-                # Si no pidió ninguno, usamos el color de la prenda de contexto.
                 color_final = color_llm if color_llm else color_prenda
                 
                 outfit_generado = await ejecutar_pipeline_outfit(
@@ -110,14 +125,16 @@ async def conversacion_ia(
                     usuario_id=datos.usuario_id,
                     prendas_input=prendas_input_dict,
                     tags_llm=tags,
-                    color_hex=color_final
+                    color_hex=color_final,
+                    temperatura=temperatura_llm
                 )
                 
                 return {
                     "tipo": "OUTFIT_GENERADO",
                     "mensaje_texto": "¡Aquí tienes una propuesta basada en lo que me has pedido!",
                     "datos_outfit": outfit_generado,
-                    "debug_tags_usados": tags
+                    "debug_tags_usados": tags,
+                    "debug_temperatura": temperatura_llm
                 }
 
         return {

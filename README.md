@@ -236,7 +236,8 @@ En prod:
    gcloud auth print-access-token | sudo docker login -u oauth2accesstoken --password-stdin https://europe-southwest1-docker.pkg.dev
    sudo docker build -t europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1 .
    sudo docker push europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1
-   gcloud run deploy outfitai-api --image europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1 --region europe-southwest1 --set-env-vars 
+   gcloud run deploy outfitai-api --image europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v1 --region europe-southwest1 --set-env-vars SUPABASE_URL="https://xjsiuxyadnqxsuzjgvnj.supabase.co",SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhqc2l1eHlhZG5xeHN1empndm5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTc3NzQ4MCwiZXhwIjoyMDk3MzUzNDgwfQ.2dZnyMaqLTwCAfnv_pN4TbZmXWRqGzeCyfUZE2_f6Dc",LLM_API_KEY="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"
+
 En dev:
    gcloud auth print-access-token | sudo docker login -u oauth2accesstoken --password-stdin https://europe-southwest1-docker.pkg.dev
    sudo docker build -t europe-southwest1-docker.pkg.dev/dressapp-503311/outfitai-repo/outfitai-app:v7-dev .
@@ -256,7 +257,7 @@ Para el otro docker:
    gcloud auth print-access-token | sudo docker login -u oauth2accesstoken --password-stdin https://europe-southwest1-docker.pkg.dev
    sudo docker build -t europe-southwest1-docker.pkg.dev/tfm-outfit-rater/outfitai-repo/outfit-app:v1 .
    sudo docker push europe-southwest1-docker.pkg.dev/tfm-outfit-rater/outfitai-repo/outfit-app:v1
-   gcloud run deploy outfit-app --image europe-southwest1-docker.pkg.dev/tfm-outfit-rater/outfitai-repo/outfit-app:v1 --region europe-southwest1 
+   gcloud run deploy outfit-app --image europe-southwest1-docker.pkg.dev/tfm-outfit-rater/outfitai-repo/outfit-app:v1 --region europe-southwest1 --set-env-vars SUPABASE_URL="https://tyoqkvnleusdsdwimjbj.supabase.co",SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5b3Frdm5sZXVzZHNkd2ltamJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4MTY5MjMsImV4cCI6MjEwMDM5MjkyM30.hmNHPtkUNJvvk38etHHX49Fpp62qSpwDJZES4lFbNSQ"
 
 ### Probar la api en local
 Abre una terminal de VSCode y escribe

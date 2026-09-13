@@ -34,29 +34,19 @@ def cargar_modelos(device: str = DEVICE) -> tuple[CLIPProcessor, CLIPModel, Remo
         - remover: La instancia del modelo encargado de segmentar y eliminar fondos.
     '''
 
-    print(f"🧠 Cargando modelos de IA en memoria ({device})...")
+    print(f"Cargando modelos de IA en memoria ({device})...")
 
-    # 1. Cargar el procesador base de CLIP
     clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
-    # 2. Cargar el modelo adaptado al dominio de la moda (FashionCLIP)
     clip_model = CLIPModel.from_pretrained('patrickjohncyh/fashion-clip').to(device)
-    clip_model.eval()  # Lo ponemos en modo inferencia, no vamos a entrenarlo
+    clip_model.eval()
 
-    # 3. Cargar el modelo de eliminación de fondo
     remover = Remover()
-    
-    print("✅ Modelos cargados exitosamente.")
 
-    # 4. NUEVO MODELO
-    print("🧠 Cargando red generativa secuencial...")
     outfit_generator = AttentionOutfitGenerator()
-
-    # Inyectamos el archivo .pth horneado en el Docker
-    #outfit_generator.load_state_dict(torch.load("pesos_recomendador_v1.pth", map_location=device))
-    #print(f"Pesos cargados correctamente desde {"pesos_recomendador_v1.pth"}.")
-
-    outfit_generator.eval() # Modo inferencia
+    outfit_generator.eval() 
     outfit_generator.to(device)
+
+    print("Modelos cargados exitosamente.")
 
     return clip_processor, clip_model, remover, outfit_generator

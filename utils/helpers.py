@@ -1,6 +1,6 @@
 from utils.catalogos import SLOTS, TODOS_LOS_SLOTS
 
-def detectar_slot(prenda: str, dic: dict[str, list[str]] = SLOTS) -> str:
+def borrar_detectar_slot(prenda: str, dic: dict[str, list[str]] = SLOTS) -> str:
     '''
     Detecta a qué parte del cuerpo (slot) corresponde un tipo de prenda dado.
     
@@ -11,10 +11,6 @@ def detectar_slot(prenda: str, dic: dict[str, list[str]] = SLOTS) -> str:
     dic : dict[str, list[str]], opcional
         Diccionario que mapea cada slot con una lista de categorías de prendas.
         Por defecto utiliza la constante global SLOTS de config.
-    
-    Precondition
-    ------------
-    La constante SLOTS debe estar bien definida en config con listas de strings en minúsculas.
     
     Returns
     -------
@@ -29,7 +25,7 @@ def detectar_slot(prenda: str, dic: dict[str, list[str]] = SLOTS) -> str:
     
     return 'OTRO'
 
-def slots_compatibles(prenda: str, dic: dict[str, list[str]] = SLOTS) -> list[str]:
+def borrar_slots_compatibles(prenda: str, dic: dict[str, list[str]] = SLOTS) -> list[str]:
     '''
     Calcula los slots complementarios necesarios para armar un look dada una prenda inicial.
     
@@ -40,17 +36,13 @@ def slots_compatibles(prenda: str, dic: dict[str, list[str]] = SLOTS) -> list[st
     dic : dict[str, list[str]], opcional
         Diccionario que contiene a qué slot pertenece cada prenda, por defecto SLOTS.
     
-    Precondition
-    ------------
-    La constante SLOTS debe estar bien definida en config.
-    
     Returns
     -------
     list[str]
         Una lista con los nombres de los slots que complementan a la prenda para 
         completar el outfit (excluyendo el slot de la prenda misma).
     '''
-    slot = detectar_slot(prenda, dic)
+    slot = borrar_detectar_slot(prenda, dic)
 
     if slot == 'SUPERIOR':
         return ['INFERIOR', 'ABRIGO', 'CALZADO', 'ACCESORIO']
