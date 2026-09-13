@@ -1,0 +1,24 @@
+# ==========================================
+# Configuración del Entrenamiento: OutfitAI
+# ==========================================
+
+# 1. Rutas de Datos y Guardado
+data_path: "data/outfits_entrenamiento.json" 
+model_save_path: "ia/pesos"       
+
+# 2. Configuración de MLflow
+experiment_name: "Outfit_Generator_Contrastive"
+# Si usas DagsHub, cambia esto por tu URL (ej: https://dagshub.com/tu-usuario/tu-repo.mlflow)
+# Si lo dejas así, creará una carpeta 'mlruns' en local.
+mlflow_uri: "sqlite:///mlflow.db"             
+
+# 3. Hiperparámetros de la Red Neuronal (Atención)
+hidden_dim: 512
+num_heads: 8
+num_layers: 2
+
+# 4. Hiperparámetros del Entrenamiento
+batch_size: 64
+num_epochs: 50
+learning_rate: 0.0003 
+margin: 0.2           

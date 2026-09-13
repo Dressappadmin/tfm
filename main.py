@@ -1,59 +1,71 @@
-# IMPORTS DE LIBRERÍAS EXTERNAS
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from PIL import Image
-import matplotlib.pyplot as plt
-import io
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-# IMPORTAMOS LIBRERÍAS Y MÓDULOS INTERNOS
-from config import *
-from data.db_loader import catalog
-from modulos.cargar_modelos import cargar_modelos
-from modulos.procesar_imagen import procesar_imagen
-from modulos.completar_outfit import completar_outfit
+# Importamos la lógica de inicialización y nuestro cliente HTTP
+from core.cargar_modelos import cargar_modelos
+from core.config import render_client
 
-# PIPELINE
-def pipeline(processor, model, remover, img, catalog, top_n=5, temperatura=0.15):
+# Importamos nuestros nuevos routers desde la capa 'api'
+from api import router_chat
+from api import router_outfits
+from api import router_prendas
+from api import router_posts
 
-    # PROCESAMOS IMAGEN
-    embedding, tipo_prenda, color = procesar_imagen(img, processor, model, remover)
-
-    # GENERAMOS UN OUTFIT
-    matches = completar_outfit(tipo_prenda, top_n, temperatura, color, embedding, catalog)
-
-    return matches
-
-# API
-ml_models = {}
-
+# =====================================================================
+# CICLO DE VIDA (LIFESPAN)
+# =====================================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # ESTO SE EJECUTA UNA SOLA VEZ AL ENCENDER LA API
-    print("Arrancando servidor: Cargando modelos en memoria RAM...")
-    processor, model, remover = cargar_modelos()
+    '''
+    Gestiona el ciclo de vida de la aplicación FastAPI, encargándose de la inicialización y limpieza de recursos. Durante el arranque, carga los modelos de Inteligencia Artificial en memoria y los asigna al estado global; durante el apagado, libera la memoria y cierra las conexiones de red asíncronas de forma segura.
+
+    Parameters
+    ----------
+    app : FastAPI
+        Instancia principal de la aplicación FastAPI cuyo ciclo de vida y estado global se están configurando.
+
+    Returns
+    ----------
+    None
+    '''
     
-    # Los guardamos en el diccionario global
-    ml_models["processor"] = processor
-    ml_models["model"] = model
-    ml_models["remover"] = remover
-    print("Modelos cargados. API lista para recibir peticiones.")
+    print("Arrancando servidor: Cargando modelos de IA en memoria RAM...")
+
+    processor, model, remover, outfit_generator = cargar_modelos()
+    
+    app.state.ml_models = {
+        "processor": processor,
+        "model": model,
+        "remover": remover,
+        "outfit_generator": outfit_generator
+    }
+    
+    print("Modelos cargados con éxito. API lista para recibir peticiones.")
     
     yield
     
-    # ESTO SE EJECUTA AL APAGAR LA API (Para liberar memoria)
-    ml_models.clear()
+    # =====================================================================
+    # APAGADO DEL SERVIDOR (Limpieza)
+    # =====================================================================
+    print("Apagando servidor, limpiando recursos...")
+    
+    app.state.ml_models.clear()
 
-# API
-# Inicializamos pasándole el lifespan
+    await render_client.aclose()
+    
+    print("Conexiones de red cerradas correctamente.")
+
+# =====================================================================
+# CONFIGURACIÓN DE FASTAPI
+# =====================================================================
 app = FastAPI(
-    title="OutfitAI API",
-    description="Motor de recomendación y análisis visual de prendas",
-    version="1.0.0",
-    lifespan=lifespan # Conectamos el ciclo de vida
+    title="DressApi - GoogleCloud",
+    description="Motor multimodal de IA para generación y recomendación de looks.",
+    version="2.0.0",
+    lifespan=lifespan
 )
 
-# Configurar CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -62,36 +74,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Peticiones
-@app.post("/analyze-outfit")
-async def analyze_outfit_endpoint(file: UploadFile = File(...)):
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen válida.")
+# =====================================================================
+# REGISTRO DE ROUTERS
+# =====================================================================
 
-    try:
-        image_bytes = await file.read()
-        img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
-
-        # límite de resolución
-        img.thumbnail((1024, 1024))
-
-        # RESCATAMOS LOS MODELOS DE LA MEMORIA RAM
-        processor = ml_models["processor"]
-        model = ml_models["model"]
-        remover = ml_models["remover"]
-
-        # Pipeline
-        matches = pipeline(processor, model, remover, img, catalog)
-
-        return {
-            "status": "success",
-            "resultados": {
-                "recomendaciones": [m.get(COL_ID) for m in matches],
-            }
-        }
-
-    except Exception as e:
-        import traceback
-        error_completo = traceback.format_exc()
-        print(error_completo) 
-        raise HTTPException(status_code=500, detail=error_completo)
+app.include_router(router_prendas.router)
+app.include_router(router_outfits.router)
+app.include_router(router_chat.router)
+app.include_router(router_posts.router)

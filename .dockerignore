@@ -1,18 +1,10 @@
-# Entornos virtuales locales
-venv/
-env/
-pip_temp/
-
-# Caché de Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Variables de entorno seguras (no copiarlas directamente a la imagen)
 .env
-.env.example
-
-# Archivos de Git
-.git/
+.env.local
+.venv
+venv
+__pycache__
+*.pyc
+.git
 .gitignore
+README.md
+data/

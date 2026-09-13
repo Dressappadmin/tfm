@@ -1,0 +1,52 @@
+from transformers import CLIPProcessor, CLIPModel
+from transparent_background import Remover
+from ia.device import DEVICE
+from ia.modelos.AttentionOutfitGenerator import AttentionOutfitGenerator
+
+def cargar_modelos(device: str = DEVICE) -> tuple[CLIPProcessor, CLIPModel, Remover, AttentionOutfitGenerator]:
+    '''
+    Descarga e inicializa en la memoria RAM los modelos de Inteligencia Artificial 
+    necesarios para el procesamiento visual de la aplicación.
+    
+    Se encarga de instanciar el procesador y el modelo de FashionCLIP (para la 
+    extracción de embeddings) y el modelo Remover (para la eliminación de fondos). 
+    Esta función debe ejecutarse una única vez durante el ciclo de arranque del 
+    servidor (lifespan) para evitar latencias severas en cada petición HTTP.
+    
+    Parameters
+    ----------
+    device : str, opcional
+        Dispositivo de hardware donde se ejecutarán los modelos tensores 
+        (ej. 'cpu', 'cuda', 'mps'). Por defecto utiliza la constante DEVICE de config.
+    
+    Precondition
+    ------------
+    El entorno debe disponer de suficiente memoria RAM (recomendado > 4GB) para 
+    alojar ambos modelos simultáneamente. Si es la primera ejecución y no están 
+    cacheados, requerirá conexión a internet para descargar los pesos desde Hugging Face.
+    
+    Returns
+    -------
+    tuple[CLIPProcessor, CLIPModel, Remover]
+        Una tupla que contiene:
+        - clip_processor: El procesador de FashionCLIP (transforma imágenes/texto a tensores).
+        - clip_model: El modelo FashionCLIP cargado en el dispositivo y en modo evaluación.
+        - remover: La instancia del modelo encargado de segmentar y eliminar fondos.
+    '''
+
+    print(f"Cargando modelos de IA en memoria ({device})...")
+
+    clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+    clip_model = CLIPModel.from_pretrained('patrickjohncyh/fashion-clip').to(device)
+    clip_model.eval()
+
+    remover = Remover()
+
+    outfit_generator = AttentionOutfitGenerator()
+    outfit_generator.eval() 
+    outfit_generator.to(device)
+
+    print("Modelos cargados exitosamente.")
+
+    return clip_processor, clip_model, remover, outfit_generator

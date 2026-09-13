@@ -1,10 +1,12 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+torch
+torchvision
+transformers
 transparent-background
 matplotlib
 gradio_client
 supabase
-transformers
-torch --index-url https://download.pytorch.org/whl/cpu
-torchvision --index-url https://download.pytorch.org/whl/cpu
 Pillow
 requests
 scikit-learn
@@ -13,4 +15,5 @@ numpy
 fastapi
 uvicorn
 python-multipart
-transparent_background
+openai
+mlflow

@@ -25,7 +25,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Descarga en caché de los modelos de IA ---
-RUN python -c "from modulos.cargar_modelos import cargar_modelos; cargar_modelos()"
+RUN python -c "from core.cargar_modelos import cargar_modelos; cargar_modelos()"
 
 # Lanzamos FastAPI usando el puerto dinámico de Google
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]
