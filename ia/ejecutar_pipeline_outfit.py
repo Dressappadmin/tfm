@@ -118,7 +118,12 @@ async def ejecutar_pipeline_outfit(
             ids_generados.append(prenda_encontrada[ID_PRENDA])
             tipos_actuales.append(slot_objetivo)
             
-            nuevo_clip = torch.tensor(prenda_encontrada[EMBEDDING_PRENDA], dtype=torch.float32).view(1, 1, -1)
+            embedding_raw_encontrada = prenda_encontrada[EMBEDDING_PRENDA]
+
+            if isinstance(embedding_raw_encontrada, str):
+                embedding_raw_encontrada = json.loads(embedding_raw_encontrada)
+
+            nuevo_clip = torch.tensor(embedding_raw_encontrada, dtype=torch.float32).view(1, 1, -1)
             
             color_nuevo = prenda_encontrada.get(COLOR_PRENDA)
             nuevo_color_tensor = hex_a_tensor_color(color_nuevo).view(1, 1, 3) if color_nuevo else torch.zeros(1, 1, 3)

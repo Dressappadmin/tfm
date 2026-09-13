@@ -6,7 +6,7 @@ from crud.storage import cargar_imagen_bucket
 from schemas.ProcesarPrendaRequest import ProcesarPrendaRequest
 from services.procesar_imagen import procesar_imagen
 from utils.helpers import detectar_slot 
-from core.api_client import URL_ARMARIO_USUARIOS
+from core.config import URL_BUCKET_PRENDAS
 
 from core.config import (
     COLOR_PRENDA, 
@@ -45,7 +45,7 @@ async def procesar_datos_prenda_ia(
 
         prenda_id = prenda_ext.split('.')[0]
 
-        url_imagen = URL_ARMARIO_USUARIOS + prenda_ext
+        url_imagen = URL_BUCKET_PRENDAS + prenda_ext
         if not url_imagen:
             raise HTTPException(status_code=400, detail="La prenda seleccionada no tiene una URL de imagen.")
 

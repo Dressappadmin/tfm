@@ -1,6 +1,6 @@
 from utils.catalogos import SLOTS, TODOS_LOS_SLOTS
 
-def borrar_detectar_slot(prenda: str, dic: dict[str, list[str]] = SLOTS) -> str:
+def detectar_slot(prenda: str, dic: dict[str, list[str]] = SLOTS) -> str:
     '''
     Detecta a qué parte del cuerpo (slot) corresponde un tipo de prenda dado.
     
@@ -42,7 +42,7 @@ def borrar_slots_compatibles(prenda: str, dic: dict[str, list[str]] = SLOTS) -> 
         Una lista con los nombres de los slots que complementan a la prenda para 
         completar el outfit (excluyendo el slot de la prenda misma).
     '''
-    slot = borrar_detectar_slot(prenda, dic)
+    slot = detectar_slot(prenda, dic)
 
     if slot == 'SUPERIOR':
         return ['INFERIOR', 'ABRIGO', 'CALZADO', 'ACCESORIO']
